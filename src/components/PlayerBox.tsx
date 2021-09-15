@@ -1,9 +1,10 @@
 import { useConst, useEventListener } from "@chakra-ui/hooks";
+import { makeArrayOf } from "@pastable/utils";
 import { animated, useSpring } from "@react-spring/three";
 import { Triplet, useBox, usePlane } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
-import { DoubleSide, Mesh, Vector2, Vector3 } from "three";
+import { DoubleSide, Mesh, MeshBasicMaterial, MeshStandardMaterial, Vector2, Vector3 } from "three";
 
 import { useKey, useKeyControls } from "@/useKey";
 
@@ -39,6 +40,7 @@ export const PlayerBox = () => {
 
     const canDashRef = useRef(true);
     const [isDashing, setDashing] = useState(false);
+    const [canDash, setCanDash] = useState(true);
     const isGroundedRef = useRef(false);
 
     useFrame((frame, delta) => {
@@ -53,12 +55,12 @@ export const PlayerBox = () => {
         if (controls.right) vel.setX(1 * settings.speed);
 
         // Dash in direction
-        if (controls.keys.has("ShiftLeft") && canDashRef.current) {
+        if (controls.anyDir && controls.keys.has("ShiftLeft") && canDash) {
             setDashing(true);
-            canDashRef.current = false;
+            setCanDash(false);
 
             setTimeout(() => setDashing(false), settings.dashDuration);
-            setTimeout(() => (canDashRef.current = true), settings.dashCd);
+            setTimeout(() => setCanDash(true), settings.dashCd);
 
             // Normalize so that the distance dashed will be the same even if going into X+Y dir at the same time
             api.applyImpulse(
@@ -87,12 +89,20 @@ export const PlayerBox = () => {
     });
 
     return (
-        <animated.mesh ref={ref}>
+        <animated.mesh ref={ref} material={isDashing ? dashingMaterial : canDash ? basicMaterial : canDashMaterial}>
             <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color={isDashing ? "yellow" : "red"} />
+            {/* <meshStandardMaterial color={isDashing ? "yellow" : "red"} /> */}
         </animated.mesh>
     );
 };
+
+const red = new MeshStandardMaterial({ color: "red" });
+const blue = new MeshStandardMaterial({ color: "blue" });
+const green = new MeshStandardMaterial({ color: "green" });
+
+const basicMaterial = [red, red, red, red, red, red];
+const dashingMaterial = [red, red, blue, red, red, red];
+const canDashMaterial = [red, red, green, red, red, red];
 
 export const Ground = () => {
     // const ref = useRef<Mesh>(null);
