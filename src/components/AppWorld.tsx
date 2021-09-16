@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { useKey } from "@/functions/useKey";
 
-import { Gravity, GravityProvider, useControllableGravity } from "./Gravity";
+import { GravityProvider, useControllableGravity } from "./Gravity";
 import { Ground } from "./Ground";
 import { PlayerBox } from "./PlayerBox";
 import { Trampoline, TrampolineWithGravity } from "./Trampoline";
@@ -13,22 +13,17 @@ export function AppWorld() {
     useKey("r", () => setCount((current) => current + 1));
 
     const [group, api] = useBox(() => ({ args: [0, 0, 0] }));
-    const gravity = useControllableGravity();
+    const { gravity, isPaused, isReversed } = useControllableGravity();
 
     return (
         <group ref={group} key={count}>
             <Debug>
                 <Ground size={[20, 20]} />
             </Debug>
-            <GravityProvider gravity={gravity}>
+            <GravityProvider gravity={gravity} isPaused={isPaused} isReversed={isReversed}>
                 <TrampolineWithGravity position={[0, 1, -3]} />
-                <Gravity>
-                    <Trampoline position={[0, 1, 4]} />
-                </Gravity>
+                <Trampoline position={[0, 1, 4]} />
                 <PlayerBox />
-                {/* <Gravity gravity={[0, -40, 0]}>
-                    <PlayerBox />
-                </Gravity> */}
             </GravityProvider>
         </group>
     );

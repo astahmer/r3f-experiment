@@ -8,30 +8,44 @@ import { useKey } from "@/functions/useKey";
 import { useMassRef } from "@/functions/useVelocity";
 
 // const defaultGravity = [0, -10, 0] as Triplet;
-export const useGravity = ({ api, gravity: gravityProp }: UseGravityProps) => {
+const pausedGravity = [0, 0, 0] as Triplet;
+export const useGravity = ({
+    api,
+    gravity: gravityProp,
+    isPaused: isPausedProp,
+    isReversed: isReversedProp,
+}: UseGravityProps) => {
     const ctxGravity = useGravityContext();
-    const gravity = gravityProp || ctxGravity;
+    const gravity = gravityProp || ctxGravity?.gravity;
     if (!gravity) {
         throw new Error("You need to pass a gravity either through the `gravity` prop or `GravityContext`");
     }
+    const isPaused = isPausedProp || ctxGravity?.isPaused;
+    const isReversed = isReversedProp || ctxGravity?.isReversed;
 
-    const [gx, gy, gz] = gravity;
+    const [gx, gy, gz] = isPaused ? pausedGravity : isReversed ? (gravity.map((v) => -v) as Triplet) : gravity;
     const massRef = useMassRef(api);
 
     useFrame(() => api.applyLocalForce([gx, massRef.current * gy, gz], [0, 0, 0]));
 };
-export interface UseGravityProps {
+export interface UseGravityProps extends Partial<GravityContext> {
     // ref: MutableRefObject<Object3D>;
     api: PublicApi;
-    gravity?: Triplet;
 }
 
-const gravityContext = createContext(null as Triplet);
+// Context
+const gravityContext = createContext(null as GravityContext);
 const useGravityContext = () => useContext(gravityContext);
-export const GravityProvider = ({ children, gravity }) => (
-    <gravityContext.Provider value={gravity}>{children}</gravityContext.Provider>
+export const GravityProvider = ({ children, gravity, isPaused, isReversed }: WithChildren & GravityContext) => (
+    <gravityContext.Provider value={{ gravity, isPaused, isReversed }}>{children}</gravityContext.Provider>
 );
+interface GravityContext {
+    gravity: Triplet;
+    isPaused?: boolean;
+    isReversed?: boolean;
+}
 
+// Global provider controller
 export const useControllableGravity = (gravityProp?: Triplet) => {
     const [{ isReversedLocalGravity, localGravityY, isPaused }, set] = useControls(() => ({
         isPaused: true,
@@ -43,15 +57,13 @@ export const useControllableGravity = (gravityProp?: Triplet) => {
     useKey("g", () => set({ isReversedLocalGravity: !isReversedLocalGravity }));
     useKey("p", () => set({ isPaused: !isPaused }));
 
-    const gravityValue = isReversedLocalGravity ? gravity : (gravity.map((v) => -v) as Triplet);
-
-    return isPaused ? [0, 0, 0] : gravityValue;
+    return { gravity, isPaused, isReversed: isReversedLocalGravity };
 };
 
 // Not working :(
 export function Gravity({ children, gravity: gravityProp }: WithChildren & Pick<UseGravityProps, "gravity">) {
     const ctxGravity = useGravityContext();
-    const gravity = gravityProp || ctxGravity;
+    const gravity = gravityProp || ctxGravity?.gravity;
 
     const [ref, api] = useBox(() => ({
         args: [0, 0, 0],
@@ -61,7 +73,7 @@ export function Gravity({ children, gravity: gravityProp }: WithChildren & Pick<
         linearDamping: 0.99,
         material: { friction: 0 },
     }));
-    useGravity({ api, gravity });
+    useGravity({ api, gravity, isPaused: ctxGravity?.isPaused });
 
     return (
         <group ref={ref}>
