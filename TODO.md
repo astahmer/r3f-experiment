@@ -7,3 +7,4 @@
 -   [ ] ghost
 -   [ ] reverse directions controls malus
 -   [x] inverse gravity
+-   [] inverse gravity in rooms (with collider)

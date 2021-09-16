@@ -2,19 +2,14 @@ import { chakra } from "@chakra-ui/system";
 import { Physics } from "@react-three/cannon";
 import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
-import { Leva, useControls } from "leva";
+import { Leva } from "leva";
 
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
+import { GravityProvider, useControllableGravity } from "./Gravity";
 
 export const AppCanvas = () => {
     const cameraPos = useAtomValue(cameraPosAtom);
-
-    const [{ isPhysicsPaused, physicsGravityY }, set] = useControls(() => ({
-        isPhysicsPaused: false,
-        physicsGravityY: { min: -100, max: 100, step: 5, value: -50 },
-    }));
-    const gravity = [0, isPhysicsPaused ? physicsGravityY : 0, 0];
 
     return (
         <>
@@ -23,13 +18,28 @@ export const AppCanvas = () => {
                 <CameraControls />
                 <ambientLight />
                 <pointLight position={[10, 10, 10]} />
-                <Physics gravity={gravity}>
-                    <AppWorld />
+                <Physics gravity={[0, 0, 0]}>
+                    <GlobalGravityProvider />
                 </Physics>
             </Canvas>
             <chakra.div pos="absolute" top="0" right="0" with="300px">
                 <Leva fill hideCopyButton />
             </chakra.div>
         </>
+    );
+};
+
+const GlobalGravityProvider = () => {
+    const ctx = useControllableGravity({
+        folderName: "globalGravity",
+        initialGy: -10,
+        initialValues: { isPaused: false },
+        pauseKey: "y",
+        reverseKey: "u",
+    });
+    return (
+        <GravityProvider {...ctx}>
+            <AppWorld />
+        </GravityProvider>
     );
 };

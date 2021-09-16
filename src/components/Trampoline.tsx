@@ -31,7 +31,7 @@ export const TrampolineWithGravity = ({ position = [5, 1, 1] }: { position?: Tri
         angularDamping: 1,
         linearDamping: 0.99,
     }));
-    useGravity({ api, gravity: [0, -50, 0] });
+    useGravity({ api });
 
     return (
         <mesh ref={ref}>
