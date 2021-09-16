@@ -1,32 +1,42 @@
-import { useEventListener } from "@chakra-ui/react";
-import { useEvent } from "@pastable/core";
+import { chakra } from "@chakra-ui/system";
 import { Physics } from "@react-three/cannon";
-import { OrbitControls } from "@react-three/drei";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { atom, useAtom } from "jotai";
+import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
-import { Suspense, useEffect } from "react";
+import { Leva, useControls } from "leva";
 
+import { successToast } from "@/functions/toasts";
+import { useKey } from "@/functions/useKey";
+
+import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
-import { Ground, PlayerBox } from "./PlayerBox";
 
 export const AppCanvas = () => {
     const cameraPos = useAtomValue(cameraPosAtom);
+
+    useKey("h", () => {
+        successToast({ title: `With gravity ${!isReversedPhysicsGravity}` });
+        set({ isReversedPhysicsGravity: !isReversedPhysicsGravity });
+    });
+    const [{ isReversedPhysicsGravity, physicsGravityY }, set] = useControls(() => ({
+        isReversedPhysicsGravity: false,
+        physicsGravityY: { min: -100, max: 100, step: 5, value: 50 },
+    }));
+    const gravity = [0, isReversedPhysicsGravity ? physicsGravityY : 0, 0];
+
     return (
-        // <Canvas gl={{ antialias: false }} camera={{ position: [0, 6, 10], up: [0, -1, 0], zoom: 1 }}>
-        <Canvas gl={{ antialias: false }} camera={{ position: cameraPos }}>
-            <axesHelper />
-            <Suspense fallback={null}>{/* <Spritesheet /> */}</Suspense>
-            <CameraControls />
-            <ambientLight />
-            <pointLight position={[10, 10, 10]} />
-            {/* <OrbitControls /> */}
-            <Physics gravity={[0, -50, 0]}>
-                <group position={[0, 5, 0]}>
-                    <PlayerBox />
-                    <Ground />
-                </group>
-            </Physics>
-        </Canvas>
+        <>
+            <Canvas gl={{ antialias: false }} camera={{ position: cameraPos }}>
+                <axesHelper />
+                <CameraControls />
+                <ambientLight />
+                <pointLight position={[10, 10, 10]} />
+                <Physics gravity={gravity}>
+                    <AppWorld />
+                </Physics>
+            </Canvas>
+            <chakra.div pos="absolute" top="0" right="0" with="300px">
+                <Leva fill hideCopyButton />
+            </chakra.div>
+        </>
     );
 };

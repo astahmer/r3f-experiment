@@ -20,6 +20,7 @@
     "axios": "^0.21.1",
     "framer-motion": "^4",
     "jotai": "^1.2.2",
+    "leva": "^0.9.13",
     "nanoid": "^3.1.25",
     "react": "^17.0.0",
     "react-dom": "^17.0.0",

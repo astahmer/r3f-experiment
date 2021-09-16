@@ -1,0 +1,27 @@
+import { Triplet, useBox } from "@react-three/cannon";
+import { DoubleSide } from "three";
+
+import { useGravity } from "./Gravity";
+
+export function Trampoline({ position = [5, 1, 1] }: { position?: Triplet }) {
+    const [ref, api] = useBox(() => ({ args: [5, 1, 1], position, mass: 10, angularDamping: 1, linearDamping: 0.99 }));
+
+    return (
+        <mesh ref={ref}>
+            <boxGeometry args={[5, 1, 1]} attach="geometry" />
+            <meshStandardMaterial attach="material" color="red" side={DoubleSide} />
+        </mesh>
+    );
+}
+
+export const TrampolineWithGravity = ({ position = [5, 1, 1] }: { position?: Triplet }) => {
+    const [ref, api] = useBox(() => ({ args: [5, 1, 1], position, mass: 10, angularDamping: 1, linearDamping: 0.99 }));
+    useGravity({ api });
+
+    return (
+        <mesh ref={ref}>
+            <boxGeometry args={[5, 1, 1]} attach="geometry" />
+            <meshStandardMaterial attach="material" color="yellow" side={DoubleSide} />
+        </mesh>
+    );
+};
