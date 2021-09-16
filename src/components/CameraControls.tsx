@@ -5,8 +5,8 @@ import { atomWithStorage, useUpdateAtom } from "jotai/utils";
 import { useRef } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 
-import { successToast } from "@/toasts";
-import { useKey } from "@/useKey";
+import { successToast } from "@/functions/toasts";
+import { useKey } from "@/functions/useKey";
 
 extend({ OrbitControls });
 

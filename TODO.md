@@ -1,0 +1,9 @@
+-   [x] double jump
+-   [x] fly
+-   [ ] trampoline
+-   [ ] slam (reverse jump)
+-   [ ] bouncy thing
+-   [ ] slow time
+-   [ ] ghost
+-   [ ] reverse directions controls malus
+-   [ ] inverse gravity

@@ -1,16 +1,18 @@
 import { useConst, useEventListener } from "@chakra-ui/hooks";
-import { makeArrayOf } from "@pastable/utils";
-import { animated, useSpring } from "@react-spring/three";
+import { makeArrayOf, updateAtIndex, updateItem } from "@pastable/utils";
+import { a, useSpring } from "@react-spring/three";
 import { PublicApi, Triplet, useBox, usePlane } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
+import { useMachine } from "@xstate/react";
 import { useEffect, useRef, useState } from "react";
 import { DoubleSide, Mesh, MeshBasicMaterial, MeshStandardMaterial, Vector2, Vector3 } from "three";
 
-import { useKey, useKeyControls } from "@/useKey";
+import { useKey, useKeyControls } from "@/functions/useKey";
+import { AnyState, getFinalStatesPath, printFinalStatesPath } from "@/functions/xstate-utils";
+
+import { getPlayerMachine } from "../functions/playerMachine";
 
 const initialPosT = [0, 0, 0.5] as Triplet;
-const initialPosV = new Vector3(...initialPosT);
-const settings = { speed: 30, force: 70, jumpForce: 1000, dashDuration: 300, dashCd: 500 };
 
 export const PlayerBox = () => {
     const controls = useKeyControls();
@@ -19,64 +21,54 @@ export const PlayerBox = () => {
         api.position.set(0, 0, 0);
     });
 
-    const [ref, api] = useBox(() => ({
+    const [box, api] = useBox(() => ({
         mass: 100,
         angularDamping: 1,
         angularVelocity: [1, 1, 1],
         linearDamping: 0.99,
         material: { friction: 0 },
-        onCollideBegin: (e) => (isGroundedRef.current = true),
-        onCollideEnd: (e) => (isGroundedRef.current = false),
+        onCollideBegin: (e) => send("SET_GROUNDED", { isGrounded: true }),
+        onCollideEnd: (e) => send("SET_GROUNDED", { isGrounded: false }),
     }));
-    const vel = useVelocity(api);
+    const vel = useVelocity(api, initialPosT);
+    const [state, send] = useMachine(() => getPlayerMachine({ box, api, vel, controls }));
 
-    const [isDashing, setDashing] = useState(false);
-    const [canDash, setCanDash] = useState(true);
-    const isGroundedRef = useRef(false);
-
-    useFrame((frame, delta) => {
-        // Set direction
-        if (controls.up) vel.setZ(-1 * settings.speed);
-        if (controls.down) vel.setZ(1 * settings.speed);
-        if (controls.left) vel.setX(-1 * settings.speed);
-        if (controls.right) vel.setX(1 * settings.speed);
-
-        // Dash in direction
-        if (controls.anyDir && controls.keys.has("ShiftLeft") && canDash) {
-            setDashing(true);
-            setCanDash(false);
-
-            setTimeout(() => setDashing(false), settings.dashDuration);
-            setTimeout(() => setCanDash(true), settings.dashCd);
-
-            // Normalize so that the distance dashed will be the same even if going into X+Y dir at the same time
-            api.applyImpulse(
-                vel
-
-                    .normalize()
-                    .multiplyScalar(settings.force * 50)
-                    .toArray(),
-                ref.current.position.toArray()
-            );
-            return;
-        }
-
-        // Jump
-        if (controls.space && isGroundedRef.current) {
-            api.applyImpulse([vel.x, settings.jumpForce, vel.z], ref.current.position.toArray());
-        }
-
-        // Move in direction
-        if (controls.anyDir) {
-            api.applyImpulse(vel.toArray(), ref.current.position.toArray());
-        }
+    useKey("Space", () => send("JUMP"));
+    useFrame(() => {
+        if (controls.anyDir) send("SET_DIR");
+        if (controls.keys.has("ShiftLeft")) return send("DASH");
+        if (controls.anyDir) send("MOVE");
     });
+    console.log(printFinalStatesPath(state), state.context.current);
 
     return (
-        <animated.mesh ref={ref} material={isDashing ? dashingMaterial : canDash ? basicMaterial : canDashMaterial}>
+        <a.mesh ref={box} material={getMaterial(state)}>
             <boxGeometry args={[1, 1, 1]} />
-        </animated.mesh>
+        </a.mesh>
     );
+};
+
+const getMaterial = (state: AnyState) => {
+    const material = [...basicMaterial];
+    if (state.matches("move.idle.canDash")) updateSides(material, green);
+    if (state.matches("move.dashing")) updateSides(material, blue);
+    if (state.matches("move.idle.exhausted")) updateSides(material, red);
+    if (state.matches("jump.grounded")) updateTop(material, green);
+    if (state.matches("jump.midair")) updateTop(material, white);
+    if (state.matches("jump.flying")) updateTop(material, red);
+
+    return material;
+};
+const updateSides = (arr: any[], update) => {
+    arr[0] = update;
+    arr[1] = update;
+    arr[4] = update;
+    arr[5] = update;
+    return arr;
+};
+const updateTop = (arr: any[], update) => {
+    arr[2] = update;
+    return arr;
 };
 
 const useVelocity = (api: PublicApi, initialPos: Triplet = [0, 0, 0]) => {
@@ -84,21 +76,22 @@ const useVelocity = (api: PublicApi, initialPos: Triplet = [0, 0, 0]) => {
     const vel = useConst<Vector3>((() => new Vector3(...initialPos)) as any);
 
     useEffect(() => api.velocity.subscribe((v) => (vRef.current = v)), []);
-    useFrame(() => {
-        const [vx, vy, vz] = vRef.current;
-        vel.set(vx, vy, vz);
-    });
+    useFrame(() => vel.set(...vRef.current));
 
     return vel;
 };
 
-const red = new MeshStandardMaterial({ color: "red" });
-const blue = new MeshStandardMaterial({ color: "blue" });
-const green = new MeshStandardMaterial({ color: "green" });
+const red = new MeshStandardMaterial({ name: "red", color: "red" });
+const blue = new MeshStandardMaterial({ name: "blue", color: "blue" });
+const green = new MeshStandardMaterial({ name: "green", color: "green" });
+const white = new MeshStandardMaterial({ name: "white", color: "white" });
+const yellow = new MeshStandardMaterial({ name: "yellow", color: "yellow" });
+const black = new MeshStandardMaterial({ name: "black", color: "black" });
 
-const basicMaterial = [red, red, red, red, red, red];
-const dashingMaterial = [red, red, blue, red, red, red];
-const canDashMaterial = [red, red, green, red, red, red];
+const basicMaterial = [white, white, white, white, white, white];
+// axesHelper -> bleu vers le bas, jaune vers la droite
+// cube faces: [droite, gauche, haut, bas, devant, derriere]
+// const debugMaterial = [white, blue, green, black, yellow, red];
 
 export const Ground = () => {
     // const ref = useRef<Mesh>(null);
