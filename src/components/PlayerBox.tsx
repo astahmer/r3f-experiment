@@ -1,22 +1,18 @@
-import { useConst, useEventListener } from "@chakra-ui/hooks";
-import { makeArrayOf, updateAtIndex, updateItem } from "@pastable/utils";
-import { a, useSpring } from "@react-spring/three";
-import { PublicApi, Triplet, useBox } from "@react-three/cannon";
+import { a } from "@react-spring/three";
+import { Triplet, useBox } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useMachine } from "@xstate/react";
 import { useUpdateAtom } from "jotai/utils";
-import { useControls } from "leva";
-import { MutableRefObject, useEffect, useMemo, useState } from "react";
-import { Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, Vector2, Vector3 } from "three";
-import { DoubleSide } from "three";
+import { useEffect, useMemo } from "react";
+import { MeshStandardMaterial, Object3D } from "three";
 
 import { playerFinalStatesPathAtom } from "@/functions/store";
 import { useKey, useKeyControls } from "@/functions/useKey";
-import { useMassRef, useVelocity } from "@/functions/useVelocity";
-import { AnyState, getFinalStatesPath, printFinalStatesPath } from "@/functions/xstate-utils";
+import { useVelocity } from "@/functions/useVelocity";
+import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { getPlayerMachine } from "../functions/playerMachine";
-import { HUDCompass, PlayerCompass } from "./Compass";
+import { PlayerCompass } from "./Compass";
 import { useGravity } from "./Gravity";
 
 const initialPosT = [0, 0, 0.5] as Triplet;
@@ -36,16 +32,21 @@ export const PlayerBox = () => {
         linearDamping: 0.99,
         material: { friction: 0 },
         onCollideBegin: (e) => {
-            console.log(e);
-            send("SET_GROUNDED", { isGrounded: true });
+            const dirs = getCollideDirections(e.target, e.body);
+            if (dirs.y === "bottom") {
+                send("SET_GROUNDED", { isGrounded: true });
+            }
         },
-        onCollideEnd: (e) => send("SET_GROUNDED", { isGrounded: false }),
     }));
-    const vel = useVelocity(api, initialPosT);
-    const [state, send] = useMachine(() => getPlayerMachine({ box, api, vel, controls }));
+    const vel = useVelocity(api, { initial: initialPosT });
+    const [state, send, service] = useMachine(() => getPlayerMachine({ box, api, vel, controls }));
 
     useGravity({ api });
-    useKey("Space", () => send("JUMP"));
+    useKey("Space", () => {
+        send("JUMP");
+        send("SET_GROUNDED", { isGrounded: false });
+    });
+    useKey("r", () => service.start());
     useFrame(() => {
         if (controls.anyDir) send("SET_DIR");
         if (controls.keys.has("ShiftLeft")) return send("DASH");
@@ -64,6 +65,18 @@ export const PlayerBox = () => {
             <PlayerCompass />
         </a.mesh>
     );
+};
+
+const getCollideDirections = (selfTarget: Object3D, bodyInContactWith: Object3D) => {
+    const targetPos = selfTarget.getWorldPosition(selfTarget.position.clone());
+    const bodyPos = bodyInContactWith.getWorldPosition(bodyInContactWith.position.clone());
+
+    const diff = targetPos.clone().sub(bodyPos);
+    const x = diff.x === 0 ? undefined : diff.x > 0 ? "left" : "right";
+    const y = diff.y === 0 ? undefined : diff.y > 0 ? "bottom" : "top";
+    const z = diff.z === 0 ? undefined : diff.z > 0 ? "front" : "back";
+
+    return { diff, x, y, z };
 };
 
 const getMaterial = (state: AnyState) => {

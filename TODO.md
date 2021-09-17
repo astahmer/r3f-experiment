@@ -7,4 +7,6 @@
 -   [ ] ghost
 -   [ ] reverse directions controls malus
 -   [x] inverse gravity
--   [] inverse gravity in rooms (with collider)
+-   [ ] inverse gravity in rooms (with collider)
+-   [ ] moving walls
+-   [ ] attraction point (gravity towards sphere) https://github.com/pmndrs/cannon-es/issues/100

@@ -35,6 +35,7 @@ export const TrampolineWithGravity = ({
         position,
         mass: 1000,
         angularDamping: 1,
+        linearFactor: [0, 1, 0],
         linearDamping: 0.99,
     }));
     useGravity({ api });
