@@ -56,11 +56,10 @@ export const PlayerBox = () => {
     useEffect(() => {
         updatePlayerFinalStatesPath(finalStatesPath);
     }, [finalStatesPath]);
-    console.log(printFinalStatesPath(state), state.context.current);
 
     return (
-        <a.mesh ref={box} material={getMaterial(state)}>
-            <boxGeometry args={[1, 1, 1]} attach="geometry" />
+        <a.mesh name="player" ref={box} material={getMaterial(state)}>
+            <boxGeometry args={[1, 1, 1]} />
         </a.mesh>
     );
 };

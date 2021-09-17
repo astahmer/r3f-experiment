@@ -21,16 +21,16 @@ export function AppWorld() {
     return (
         <group ref={group} key={count}>
             <Debug>
-                <Ground size={[20, 20]} />
+                <Ground size={[20, 0.1, 20]} />
             </Debug>
-            <TrampolineWithGravity position={[3, 1, 0]} />
+            <TrampolineWithGravity position={[3, 1, 0]} color="yellow" />
             <GravityProvider
                 gravity={gravity}
                 isPaused={areGravitySync ? isPaused || rootGravity.isPaused : isPaused}
                 isReversed={areGravitySync ? isReversed || rootGravity.isPaused : isReversed}
             >
-                <TrampolineWithGravity position={[0, 1, -3]} />
-                <Trampoline position={[0, 1, 4]} />
+                <TrampolineWithGravity position={[0, 1, -3]} color="grey" />
+                <Trampoline position={[0, 1, 4]} color="red" />
                 <PlayerBox />
             </GravityProvider>
         </group>

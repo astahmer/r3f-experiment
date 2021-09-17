@@ -6,7 +6,7 @@ import { useKey } from "@/functions/useKey";
 
 import { useGravity } from "./Gravity";
 
-export function Trampoline({ position = [5, 1, 1] }: { position?: Triplet }) {
+export function Trampoline({ position = [5, 1, 1], color = "red" }: { position?: Triplet; color?: string }) {
     const [ref, api] = useBox(() => ({
         args: [5, 1, 1],
         position,
@@ -18,12 +18,18 @@ export function Trampoline({ position = [5, 1, 1] }: { position?: Triplet }) {
     return (
         <mesh ref={ref}>
             <boxGeometry args={[5, 1, 1]} />
-            <meshStandardMaterial attach="material" color="red" side={DoubleSide} />
+            <meshStandardMaterial color={color} side={DoubleSide} />
         </mesh>
     );
 }
 
-export const TrampolineWithGravity = ({ position = [5, 1, 1] }: { position?: Triplet }) => {
+export const TrampolineWithGravity = ({
+    position = [5, 1, 1],
+    color = "yellow",
+}: {
+    position?: Triplet;
+    color?: string;
+}) => {
     const [ref, api] = useBox(() => ({
         args: [5, 1, 1],
         position,
@@ -38,7 +44,7 @@ export const TrampolineWithGravity = ({ position = [5, 1, 1] }: { position?: Tri
     return (
         <mesh ref={ref}>
             <boxGeometry args={[5, 1, 1]} />
-            <meshStandardMaterial attach="material" color="yellow" side={DoubleSide} />
+            <meshStandardMaterial color={color} side={DoubleSide} />
         </mesh>
     );
 };

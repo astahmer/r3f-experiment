@@ -38,7 +38,7 @@ const PlayerFinalStatePaths = () => {
         <chakra.div pos="absolute" top="100%" left="0" whiteSpace="nowrap">
             <chakra.div p="2">
                 {finalStatesPath.split(" / ").map((path) => (
-                    <chakra.div>{path}</chakra.div>
+                    <chakra.div key={path}>{path}</chakra.div>
                 ))}
             </chakra.div>
         </chakra.div>

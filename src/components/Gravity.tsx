@@ -1,6 +1,5 @@
 import { WithChildren } from "@pastable/react";
-import { ObjectLiteral } from "@pastable/typings";
-import { PublicApi, Triplet, useBox } from "@react-three/cannon";
+import { PublicApi, Triplet } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useControls } from "leva";
 import { FolderSettings } from "leva/dist/declarations/src/types";
@@ -85,30 +84,3 @@ export const useControllableGravity = (
 
     return { gravity, isPaused, isReversed };
 };
-
-// Not working :(
-export function Gravity({ children, gravity: gravityProp }: WithChildren & Pick<UseGravityProps, "gravity">) {
-    const ctxGravity = useGravityContext();
-    const gravity = gravityProp || ctxGravity?.gravity;
-
-    const [ref, api] = useBox(() => ({
-        args: [0, 0, 0],
-        mass: 1,
-        angularDamping: 1,
-        linearFactor: [0, 1, 0],
-        linearDamping: 0.99,
-        material: { friction: 0 },
-    }));
-    useGravity({ api, gravity, isPaused: ctxGravity?.isPaused });
-
-    return (
-        <group ref={ref}>
-            {/* <group> */}
-            {/* <mesh ref={ref}>
-                    <planeGeometry args={[1, 1]} attach="geometry" />
-                    <meshStandardMaterial attach="material" color="grey" side={DoubleSide} />
-                </mesh> */}
-            {children}
-        </group>
-    );
-}
