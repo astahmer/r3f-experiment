@@ -30,13 +30,16 @@ export const AppCanvas = () => {
 };
 
 const GlobalGravityProvider = () => {
-    const ctx = useControllableGravity({
-        folderName: "globalGravity",
-        initialGy: -10,
-        initialValues: { isPaused: false },
-        pauseKey: "y",
-        reverseKey: "u",
-    });
+    const ctx = useControllableGravity(
+        {
+            folderName: "globalGravity",
+            initialGy: -10,
+            initialValues: { isPaused: true },
+            pauseKey: "y",
+            reverseKey: "u",
+        },
+        { collapsed: true }
+    );
     return (
         <GravityProvider {...ctx}>
             <AppWorld />

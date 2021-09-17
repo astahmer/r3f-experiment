@@ -3,6 +3,7 @@ import { ObjectLiteral } from "@pastable/typings";
 import { PublicApi, Triplet, useBox } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useControls } from "leva";
+import { FolderSettings } from "leva/dist/declarations/src/types";
 import { createContext, useContext } from "react";
 
 import { useKey } from "@/functions/useKey";
@@ -47,35 +48,42 @@ interface GravityContext {
 }
 
 // Global provider controller
-export const useControllableGravity = ({
-    folderName,
-    initialGy = 50,
-    initialValues,
-    pauseKey = "p",
-    reverseKey = "g",
-}: {
-    folderName: string;
-    initialGy?: number;
-    initialValues?: {
-        isPaused?: boolean;
-        isReversed?: boolean;
-        gravityY?: any;
-    };
-    pauseKey?: string;
-    reverseKey?: string;
-}) => {
-    const [{ isReversed, gravityY, isPaused }, set] = useControls(folderName, () => ({
-        isPaused: true,
-        isReversed: false,
-        gravityY: { min: -100, max: 100, step: 5, value: initialGy },
-        ...initialValues,
-    }));
+export const useControllableGravity = (
+    {
+        folderName,
+        initialGy = -50,
+        initialValues,
+        pauseKey = "p",
+        reverseKey = "g",
+    }: {
+        folderName: string;
+        initialGy?: number;
+        initialValues?: {
+            isPaused?: boolean;
+            isReversed?: boolean;
+            gravityY?: any;
+        };
+        pauseKey?: string;
+        reverseKey?: string;
+    },
+    folderSettings?: FolderSettings
+) => {
+    const [{ isReversed, gravityY, isPaused }, set] = useControls(
+        folderName,
+        () => ({
+            isPaused: true,
+            isReversed: false,
+            gravityY: { min: -100, max: 100, step: 5, value: initialGy },
+            ...initialValues,
+        }),
+        folderSettings
+    );
     const gravity = [0, gravityY, 0] as Triplet;
 
     useKey(reverseKey, () => set({ isReversed: !isReversed }));
     useKey(pauseKey, () => set({ isPaused: !isPaused }));
 
-    return { gravity, isPaused, isReversed: isReversed };
+    return { gravity, isPaused, isReversed };
 };
 
 // Not working :(

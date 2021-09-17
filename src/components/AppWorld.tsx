@@ -1,4 +1,5 @@
 import { Debug, useBox } from "@react-three/cannon";
+import { useControls } from "leva";
 import { useState } from "react";
 
 import { useKey } from "@/functions/useKey";
@@ -14,8 +15,8 @@ export function AppWorld() {
 
     const [group, api] = useBox(() => ({ args: [0, 0, 0] }));
     const { gravity, isPaused, isReversed } = useControllableGravity({ folderName: "localGravity" });
+    const { areGravitySync } = useControls({ areGravitySync: false });
     const rootGravity = useGravityContext();
-    console.log({ gravity, isPaused, isReversed }, rootGravity);
 
     return (
         <group ref={group} key={count}>
@@ -25,8 +26,8 @@ export function AppWorld() {
             <TrampolineWithGravity position={[3, 1, 0]} />
             <GravityProvider
                 gravity={gravity}
-                isPaused={isPaused || rootGravity.isPaused}
-                isReversed={isReversed || rootGravity.isPaused}
+                isPaused={areGravitySync ? isPaused || rootGravity.isPaused : isPaused}
+                isReversed={areGravitySync ? isReversed || rootGravity.isPaused : isReversed}
             >
                 <TrampolineWithGravity position={[0, 1, -3]} />
                 <Trampoline position={[0, 1, 4]} />

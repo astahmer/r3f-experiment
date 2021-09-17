@@ -33,6 +33,8 @@ export const TrampolineWithGravity = ({ position = [5, 1, 1] }: { position?: Tri
     }));
     useGravity({ api });
 
+    // bouncy = material.restitution ++, friction = 0
+
     return (
         <mesh ref={ref}>
             <boxGeometry args={[5, 1, 1]} />
