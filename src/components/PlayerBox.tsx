@@ -4,10 +4,13 @@ import { a, useSpring } from "@react-spring/three";
 import { PublicApi, Triplet, useBox } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useMachine } from "@xstate/react";
-import { MutableRefObject, useEffect, useState } from "react";
+import { useUpdateAtom } from "jotai/utils";
+import { useControls } from "leva";
+import { MutableRefObject, useEffect, useMemo, useState } from "react";
 import { Mesh, MeshBasicMaterial, MeshStandardMaterial, Object3D, Vector2, Vector3 } from "three";
 import { DoubleSide } from "three";
 
+import { playerFinalStatesPathAtom } from "@/functions/store";
 import { useKey, useKeyControls } from "@/functions/useKey";
 import { useMassRef, useVelocity } from "@/functions/useVelocity";
 import { AnyState, getFinalStatesPath, printFinalStatesPath } from "@/functions/xstate-utils";
@@ -31,7 +34,10 @@ export const PlayerBox = () => {
         angularVelocity: [1, 1, 1],
         linearDamping: 0.99,
         material: { friction: 0 },
-        onCollideBegin: (e) => send("SET_GROUNDED", { isGrounded: true }),
+        onCollideBegin: (e) => {
+            console.log(e);
+            send("SET_GROUNDED", { isGrounded: true });
+        },
         onCollideEnd: (e) => send("SET_GROUNDED", { isGrounded: false }),
     }));
     const vel = useVelocity(api, initialPosT);
@@ -44,6 +50,12 @@ export const PlayerBox = () => {
         if (controls.keys.has("ShiftLeft")) return send("DASH");
         if (controls.anyDir) send("MOVE");
     });
+
+    const updatePlayerFinalStatesPath = useUpdateAtom(playerFinalStatesPathAtom);
+    const finalStatesPath = useMemo(() => printFinalStatesPath(state), [state]);
+    useEffect(() => {
+        updatePlayerFinalStatesPath(finalStatesPath);
+    }, [finalStatesPath]);
     console.log(printFinalStatesPath(state), state.context.current);
 
     return (

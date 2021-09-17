@@ -13,9 +13,9 @@ export const getFinalStatesPath = (state: AnyState) => {
                 .reduce((acc, current) => Math.max(acc, current), 0)
         )
         .reduce((acc, max, index) => ({ ...acc, [rootPaths[index]]: max }), {});
-    const finalPaths = paths.filter(
-        (path) => path.split(".").length === maxNestingLevel[rootPaths.find((root) => path.startsWith(root))]
-    );
+    const finalPaths = paths
+        .filter((path) => path.split(".").length === maxNestingLevel[rootPaths.find((root) => path.startsWith(root))])
+        .sort();
 
     return finalPaths;
 };

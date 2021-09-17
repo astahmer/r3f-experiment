@@ -4,6 +4,8 @@ import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
 import { Leva } from "leva";
 
+import { playerFinalStatesPathAtom } from "@/functions/store";
+
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
 import { GravityProvider, useControllableGravity } from "./Gravity";
@@ -22,10 +24,24 @@ export const AppCanvas = () => {
                     <GlobalGravityProvider />
                 </Physics>
             </Canvas>
-            <chakra.div pos="absolute" top="0" right="0" with="300px">
+            <chakra.div pos="absolute" top="0" right="0">
                 <Leva fill hideCopyButton />
+                <PlayerFinalStatePaths />
             </chakra.div>
         </>
+    );
+};
+
+const PlayerFinalStatePaths = () => {
+    const finalStatesPath = useAtomValue(playerFinalStatesPathAtom);
+    return (
+        <chakra.div pos="absolute" top="100%" left="0" whiteSpace="nowrap">
+            <chakra.div p="2">
+                {finalStatesPath.split(" / ").map((path) => (
+                    <chakra.div>{path}</chakra.div>
+                ))}
+            </chakra.div>
+        </chakra.div>
     );
 };
 
