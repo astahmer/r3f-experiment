@@ -33,7 +33,7 @@ export const TrampolineWithGravity = ({
     const [ref, api] = useBox(() => ({
         args: [5, 1, 1],
         position,
-        mass: 10,
+        mass: 1000,
         angularDamping: 1,
         linearDamping: 0.99,
     }));

@@ -30,7 +30,7 @@ export function AppWorld() {
                 isReversed={areGravitySync ? isReversed || rootGravity.isPaused : isReversed}
             >
                 <TrampolineWithGravity position={[0, 1, -3]} color="grey" />
-                <Trampoline position={[0, 1, 4]} color="red" />
+                {/* <Trampoline position={[0, 1, 4]} color="red" /> */}
                 <PlayerBox />
             </GravityProvider>
         </group>

@@ -3,11 +3,13 @@ import { Physics } from "@react-three/cannon";
 import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
 import { Leva } from "leva";
+import { Suspense } from "react";
 
 import { playerFinalStatesPathAtom } from "@/functions/store";
 
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
+import { HUDCompass } from "./Compass";
 import { GravityProvider, useControllableGravity } from "./Gravity";
 
 export const AppCanvas = () => {
@@ -23,6 +25,7 @@ export const AppCanvas = () => {
                 <Physics gravity={[0, 0, 0]}>
                     <GlobalGravityProvider />
                 </Physics>
+                <HUDCompass fullscreen />
             </Canvas>
             <chakra.div pos="absolute" top="0" right="0">
                 <Leva fill hideCopyButton />
@@ -58,7 +61,9 @@ const GlobalGravityProvider = () => {
     );
     return (
         <GravityProvider {...ctx}>
-            <AppWorld />
+            <Suspense fallback={null}>
+                <AppWorld />
+            </Suspense>
         </GravityProvider>
     );
 };

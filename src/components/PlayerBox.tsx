@@ -16,6 +16,7 @@ import { useMassRef, useVelocity } from "@/functions/useVelocity";
 import { AnyState, getFinalStatesPath, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { getPlayerMachine } from "../functions/playerMachine";
+import { HUDCompass, PlayerCompass } from "./Compass";
 import { useGravity } from "./Gravity";
 
 const initialPosT = [0, 0, 0.5] as Triplet;
@@ -60,6 +61,7 @@ export const PlayerBox = () => {
     return (
         <a.mesh name="player" ref={box} material={getMaterial(state)}>
             <boxGeometry args={[1, 1, 1]} />
+            <PlayerCompass />
         </a.mesh>
     );
 };

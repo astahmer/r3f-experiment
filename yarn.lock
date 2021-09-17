@@ -1973,6 +1973,13 @@
     utility-types "^3.10.0"
     zustand "^3.5.1"
 
+"@react-three/flex@^0.7.0":
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/@react-three/flex/-/flex-0.7.0.tgz#552f74a6765aa1d2d2e64cddf30bb2d22c2298ef"
+  integrity sha512-Cim/9u6BYuieyZ2NXbE4nbNOqWIyOlT62qlFEQsh6SoMJFde0pBICZupgRlI5VkWX6c2aMXoFkLTxlX6AEmsjQ==
+  dependencies:
+    yoga-layout-prebuilt "^1.9.6"
+
 "@rollup/plugin-babel@^5.2.0":
   version "5.3.0"
   resolved "https://registry.yarnpkg.com/@rollup/plugin-babel/-/plugin-babel-5.3.0.tgz#9cb1c5146ddd6a4968ad96f209c50c62f92f9879"
@@ -2120,6 +2127,11 @@
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/@types/warning/-/warning-3.0.0.tgz#0d2501268ad8f9962b740d387c4654f5f8e23e52"
   integrity sha1-DSUBJorY+ZYrdA04fEZU9fjiPlI=
+
+"@types/yoga-layout@1.9.2":
+  version "1.9.2"
+  resolved "https://registry.yarnpkg.com/@types/yoga-layout/-/yoga-layout-1.9.2.tgz#efaf9e991a7390dc081a0b679185979a83a9639a"
+  integrity sha512-S9q47ByT2pPvD65IvrWp7qppVMpk9WGMbVq9wbWZOHg6tnXSD4vyhao6nOSBwwfDdV2p3Kx9evA9vI+XWTfDvw==
 
 "@vitejs/plugin-react-refresh@^1.3.1":
   version "1.3.5"
@@ -2611,6 +2623,11 @@ extend-shallow@^3.0.0:
   dependencies:
     assign-symbols "^1.0.0"
     is-extendable "^1.0.1"
+
+fast-deep-equal@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/fast-deep-equal/-/fast-deep-equal-2.0.1.tgz#7b05218ddf9667bf7f370bf7fdb2cb15fdd0aa49"
+  integrity sha1-ewUhjd+WZ79/Nwv3/bLLFf3Qqkk=
 
 fast-deep-equal@^3.1.3:
   version "3.1.3"
@@ -3486,6 +3503,13 @@ react-merge-refs@^1.0.0, react-merge-refs@^1.1.0:
   resolved "https://registry.yarnpkg.com/react-merge-refs/-/react-merge-refs-1.1.0.tgz#73d88b892c6c68cbb7a66e0800faa374f4c38b06"
   integrity sha512-alTKsjEL0dKH/ru1Iyn7vliS2QRcBp9zZPGoWxUOvRGWPUYgjo+V01is7p04It6KhgrzhJGnIj9GgX8W4bZoCQ==
 
+react-promise-suspense@^0.3.3:
+  version "0.3.3"
+  resolved "https://registry.yarnpkg.com/react-promise-suspense/-/react-promise-suspense-0.3.3.tgz#b085c7e0ac22b85fd3d605b1c4f181cda4310bc9"
+  integrity sha512-OdehKsCEWYoV6pMcwxbvJH99UrbXylmXJ1QpEL9OfHaUBzcAihyfSJV8jFq325M/wW9iKc/BoiLROXxMul+MxA==
+  dependencies:
+    fast-deep-equal "^2.0.1"
+
 react-query@^3.19.4:
   version "3.19.4"
   resolved "https://registry.yarnpkg.com/react-query/-/react-query-3.19.4.tgz#67b97470446bd0315d02066debec7775cac83f29"
@@ -3570,6 +3594,13 @@ react-three-fiber@0.0.0-deprecated:
   version "0.0.0-deprecated"
   resolved "https://registry.yarnpkg.com/react-three-fiber/-/react-three-fiber-0.0.0-deprecated.tgz#c737242487d824cf9520307308b7e4c4071a278f"
   integrity sha512-EblIqTAsIpkYeM8bZtC4lcpTE0A2zCEGipFB52RgcQq/q+0oryrk7Sxt+sqhIjUu6xMNEVywV8dr74lz5yWO6A==
+
+react-three-flex@pmndrs/react-three-flex#37/head:
+  version "0.5.2"
+  resolved "https://codeload.github.com/pmndrs/react-three-flex/tar.gz/0d9c7d8a76b5d70263af873da8f25c9632dd2f0c"
+  dependencies:
+    react-promise-suspense "^0.3.3"
+    yoga-wasm-slim "^0.0.6"
 
 react-use-gesture@^9.1.3:
   version "9.1.3"
@@ -4361,6 +4392,18 @@ yaml@^1.7.2:
   version "1.10.2"
   resolved "https://registry.yarnpkg.com/yaml/-/yaml-1.10.2.tgz#2301c5ffbf12b467de8da2333a459e29e7920e4b"
   integrity sha512-r3vXyErRCYJ7wg28yvBY5VSoAF8ZvlcW9/BwUzEtUsjvX/DKs24dIkuwjtuprwJJHsbyUbLApepYTR1BN4uHrg==
+
+yoga-layout-prebuilt@^1.9.6:
+  version "1.10.0"
+  resolved "https://registry.yarnpkg.com/yoga-layout-prebuilt/-/yoga-layout-prebuilt-1.10.0.tgz#2936fbaf4b3628ee0b3e3b1df44936d6c146faa6"
+  integrity sha512-YnOmtSbv4MTf7RGJMK0FvZ+KD8OEe/J5BNnR0GHhD8J/XcG/Qvxgszm0Un6FTHWW4uHlTgP0IztiXQnGyIR45g==
+  dependencies:
+    "@types/yoga-layout" "1.9.2"
+
+yoga-wasm-slim@^0.0.6:
+  version "0.0.6"
+  resolved "https://registry.yarnpkg.com/yoga-wasm-slim/-/yoga-wasm-slim-0.0.6.tgz#0b1604a28f6453260c0b772d45b9d4cf5b11380d"
+  integrity sha512-H8vUiyp+wbmU4vHl87Jt0vaAZiyItKhheCnE4/Rku2pUQdvWfbrqU+GlB4bTbVIxZu7ZUwcex6Zcg7+KcQerOQ==
 
 zstddec@^0.0.2:
   version "0.0.2"
