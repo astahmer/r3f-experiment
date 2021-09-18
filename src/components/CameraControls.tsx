@@ -1,17 +1,17 @@
 import { safeJSONParse } from "@pastable/utils";
 import { Triplet } from "@react-three/cannon";
 import { MapControls, OrbitControls } from "@react-three/drei";
-import { extend, useFrame, useThree } from "@react-three/fiber";
-import { atom, useAtom } from "jotai";
+import { useFrame, useThree } from "@react-three/fiber";
 import { atomWithStorage, useUpdateAtom } from "jotai/utils";
 import { button, useControls } from "leva";
 import { useEffect, useRef } from "react";
 
 import { successToast } from "@/functions/toasts";
 
+type Rotation = Parameters<THREE.Euler["set"]>;
 const initialCameraPosition = [0, 6, 10] as Triplet;
 export const cameraPosAtom = atomWithStorage("r3f/cameraPos", initialCameraPosition);
-export const cameraRotationAtom = atomWithStorage("r3f/cameraRotation", [0, 0, 0]);
+export const cameraRotationAtom = atomWithStorage("r3f/cameraRotation", [0, 0, 0, "XYZ"] as Rotation);
 export const cameraTypeAtom = atomWithStorage("r3f/cameraType", "Map");
 
 export const CameraControls = () => {
@@ -30,10 +30,13 @@ export const CameraControls = () => {
     const goToSavedPos = () => {
         const savedPos = safeJSONParse<Triplet>(localStorage.getItem("r3f/cameraPos"));
         if (!savedPos) return;
+        const savedRotation = safeJSONParse<Rotation>(localStorage.getItem("r3f/cameraRotation"));
 
         camera.position.set(...savedPos);
+        camera.rotation.set(...savedRotation);
+
         setPosition(savedPos);
-        setRotation(safeJSONParse<Triplet>(localStorage.getItem("r3f/cameraRotation")));
+        setRotation(savedRotation);
     };
 
     const { type } = useControls("camera", {
@@ -43,7 +46,7 @@ export const CameraControls = () => {
         },
         "Save position": button(() => {
             setPosition(camera.position.toArray());
-            setRotation(camera.rotation.toArray());
+            setRotation(camera.rotation.toArray() as Rotation);
             successToast({ title: "Saved camera position !", description: camera.position.toArray().join(",") });
         }),
         "Go to saved position": button(goToSavedPos),
@@ -62,7 +65,6 @@ export const CameraControls = () => {
     // Persist type to localStorage onChange
     useEffect(() => {
         if (!type) return;
-        console.log(type);
         setType(safeJSONParse(type));
     }, [type]);
 
