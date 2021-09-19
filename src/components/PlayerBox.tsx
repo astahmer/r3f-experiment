@@ -30,7 +30,7 @@ export const PlayerBox = () => {
         angularDamping: 1,
         angularVelocity: [1, 1, 1],
         linearDamping: 0.99,
-        material: { friction: 0 },
+        material: { friction: 0, restitution: 0.1 },
         onCollideBegin: (e) => {
             const dirs = getCollideDirections(e.target, e.body);
             if (dirs.y === "bottom") {
