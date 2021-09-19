@@ -4,10 +4,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
 
-export const useVelocity = (
-    api: PublicApi,
-    { initial = [0, 0, 0], onUpdate }: { initial?: Triplet; onUpdate?: (v: Triplet) => void }
-) => {
+export const useVelocity = (api: PublicApi, { initial = [0, 0, 0], onUpdate }: UseVelocityOptions = {}) => {
     const vRef = useRef<Triplet>(initial);
     const vel = useConst<Vector3>((() => new Vector3(...initial)) as any);
 
@@ -24,19 +21,41 @@ export const useVelocity = (
     return vel;
 };
 
-export const usePosition = (api: PublicApi, initial: Triplet = [0, 0, 0]) => {
+export const usePosition = (api: PublicApi, { initial = [0, 0, 0], onUpdate }: UseVelocityOptions = {}) => {
     const pRef = useRef<Triplet>(initial);
     const pos = useConst<Vector3>((() => new Vector3(...initial)) as any);
 
-    useEffect(() => api.position.subscribe((v) => (pRef.current = v)), []);
+    useEffect(
+        () =>
+            api.position.subscribe((v) => {
+                pRef.current = v;
+                onUpdate?.(v);
+            }),
+        []
+    );
     useFrame(() => pos.set(...pRef.current));
 
     return pos;
 };
 
-export const useMassRef = (api: PublicApi, initial: number = 0) => {
+interface UseVelocityOptions {
+    initial?: Triplet;
+    onUpdate?: (v: Triplet) => void;
+}
+
+export const useMassRef = (
+    api: PublicApi,
+    { initial = 0, onUpdate }: { initial?: number; onUpdate?: (m: number) => void } = {}
+) => {
     const ref = useRef<number>(initial);
-    useEffect(() => api.mass.subscribe((v) => (ref.current = v)), []);
+    useEffect(
+        () =>
+            api.mass.subscribe((m) => {
+                ref.current = m;
+                onUpdate?.(m);
+            }),
+        []
+    );
 
     return ref;
 };

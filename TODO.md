@@ -1,8 +1,8 @@
 -   [x] double jump
 -   [x] fly
--   [ ] trampoline
+-   [x] trampoline
 -   [ ] slam (reverse jump)
--   [ ] bouncy thing/walls
+-   [ ] bouncy walls
 -   [ ] slow time
 -   [ ] ghost
 -   [ ] reverse directions controls malus

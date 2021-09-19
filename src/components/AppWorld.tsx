@@ -7,7 +7,7 @@ import { useKey } from "@/functions/useKey";
 import { GravityProvider, useControllableGravity, useGravityContext } from "./Gravity";
 import { Ground } from "./Ground";
 import { PlayerBox } from "./PlayerBox";
-import { TrampolineWithGravity } from "./Trampoline";
+import { Trampoline } from "./Trampoline";
 
 export function AppWorld() {
     const [count, setCount] = useState(0);
@@ -23,21 +23,16 @@ export function AppWorld() {
             <Debug>
                 <Ground size={[20, 0.1, 20]} />
             </Debug>
-            <TrampolineWithGravity position={[3, 1, 0]} color="yellow" />
+            <Trampoline position={[3, 1, 0]} color="yellow" />
             <GravityProvider
                 gravity={gravity}
                 isPaused={areGravitySync ? isPaused || rootGravity.isPaused : isPaused}
                 isReversed={areGravitySync ? isReversed || rootGravity.isPaused : isReversed}
             >
-                <TrampolineWithGravity position={[3, 0, 9]} color="grey" />
-                {/* <Trampoline position={[0, 1, 4]} color="red" /> */}
                 <PlayerBox />
-                <TrampolineWithGravity position={[0, -3.8, 5]} color="yellow" />
-                <TrampolineWithGravity position={[2, -3.8, 5]} color="yellow" />
-                <TrampolineWithGravity position={[4, -3.8, 5]} color="yellow" />
-                <TrampolineWithGravity position={[0, -3.8, 7]} color="yellow" />
-                <TrampolineWithGravity position={[2, -3.8, 9]} color="yellow" />
-                <TrampolineWithGravity position={[4, -3.8, 11]} color="yellow" />
+                <Trampoline position={[0, -3.8, 1]} color="yellow" />
+                <Trampoline position={[0, -3.8, 3]} color="yellow" />
+                <Trampoline position={[0, -3.8, 5]} color="yellow" />
             </GravityProvider>
         </group>
     );

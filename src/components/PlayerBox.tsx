@@ -6,7 +6,7 @@ import { useUpdateAtom } from "jotai/utils";
 import { useEffect, useMemo } from "react";
 import { MeshStandardMaterial, Object3D } from "three";
 
-import { playerFinalStatesPathAtom } from "@/functions/store";
+import { CollisionGroup, playerFinalStatesPathAtom } from "@/functions/store";
 import { useKey, useKeyControls } from "@/functions/useKey";
 import { useVelocity } from "@/functions/useVelocity";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
@@ -30,6 +30,7 @@ export const PlayerBox = () => {
         angularDamping: 1,
         angularVelocity: [1, 1, 1],
         linearDamping: 0.99,
+        collisionFilterGroup: CollisionGroup.PLAYER,
         material: { friction: 0, restitution: 0.1 },
         onCollideBegin: (e) => {
             const dirs = getCollideDirections(e.target, e.body);
