@@ -1,6 +1,7 @@
 -   [x] double jump
 -   [x] fly
 -   [x] trampoline
+-   [ ] launchpad (trampoline incliné qui projette en avant en + de la projection en hauteur)
 -   [ ] slam (reverse jump)
 -   [ ] bouncy walls
 -   [ ] slow time
@@ -10,3 +11,7 @@
 -   [ ] inverse gravity in rooms (with collider)
 -   [ ] moving walls
 -   [ ] attraction point (gravity towards sphere) https://github.com/pmndrs/cannon-es/issues/100
+-   [ ] portals
+-   [ ] teleport point like tf2 after a few seconds or onClick
+-   [ ] doors
+-   [ ] plank bridge

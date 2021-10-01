@@ -2,20 +2,22 @@ import { a } from "@react-spring/three";
 import { Triplet, useBox } from "@react-three/cannon";
 import { useFrame } from "@react-three/fiber";
 import { useMachine } from "@xstate/react";
-import { useUpdateAtom } from "jotai/utils";
+import { useAtomValue, useUpdateAtom } from "jotai/utils";
 import { useEffect, useMemo } from "react";
-import { MeshStandardMaterial, Object3D } from "three";
+import { MeshStandardMaterial, Object3D, Vector3 } from "three";
 
 import { CollisionGroup, playerFinalStatesPathAtom } from "@/functions/store";
 import { useKey, useKeyControls } from "@/functions/useKey";
-import { useVelocity } from "@/functions/useVelocity";
+import { usePosition, useVelocity } from "@/functions/useVelocity";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { getPlayerMachine } from "../functions/playerMachine";
+import { cameraRelativePosAtom, cameraTypeAtom } from "./CameraControls";
 import { PlayerCompass } from "./Compass";
 import { useGravity } from "./Gravity";
 
 const initialPosT = [0, 0, 0.5] as Triplet;
+const relativeCameraOffset = new Vector3(-10, 3, 0);
 
 export const PlayerBox = () => {
     const controls = useKeyControls();
@@ -48,7 +50,24 @@ export const PlayerBox = () => {
         send("SET_GROUNDED", { isGrounded: false });
     });
     useKey("r", () => service.start());
-    useFrame(() => {
+
+    const cameraType = useAtomValue(cameraTypeAtom);
+    const cameraRelativePos = useAtomValue(cameraRelativePosAtom);
+    const currentPos = usePosition(api);
+
+    useFrame(({ camera }) => {
+        if (cameraType === "Perspective") {
+            // Calculate ideal camera position
+            const cameraOffset = relativeCameraOffset
+                .clone()
+                .fromArray(cameraRelativePos)
+                .applyMatrix4(box.current.matrixWorld);
+
+            // Update camera position and rotation
+            camera.position.lerp(cameraOffset, 0.1);
+            camera.lookAt(currentPos);
+        }
+
         if (controls.anyDir) send("SET_DIR");
         if (controls.keys.has("ShiftLeft")) return send("DASH");
         if (controls.anyDir) send("MOVE");
