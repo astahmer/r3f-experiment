@@ -1,10 +1,12 @@
 import { safeJSONParse } from "@pastable/utils";
 import { Triplet } from "@react-three/cannon";
-import { MapControls, MapControlsProps, OrbitControls, OrbitControlsProps } from "@react-three/drei";
+import { MapControls, MapControlsProps, OrbitControls, OrbitControlsProps, TrackballControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { atomWithStorage, useUpdateAtom } from "jotai/utils";
-import { button, buttonGroup, useControls } from "leva";
+import { atom } from "jotai";
+import { atomWithStorage, useAtomValue, useUpdateAtom } from "jotai/utils";
+import { buttonGroup, useControls } from "leva";
 import { useEffect, useRef } from "react";
+import { Vector3 } from "three";
 
 import { successToast } from "@/functions/toasts";
 import { useArrayCursor } from "@/functions/useArrayCursor";
@@ -12,18 +14,29 @@ import { useKey } from "@/functions/useKey";
 
 type Rotation = Parameters<THREE.Euler["set"]>;
 const initialCameraPosition = [0, 6, 10] as Triplet;
+const initialRelativeCameraPosition = [0, 4, 7] as Triplet;
+const initialCameraType = "Orbit";
+
 export const cameraPosAtom = atomWithStorage("r3f/cameraPos", initialCameraPosition);
 export const cameraRotationAtom = atomWithStorage("r3f/cameraRotation", [0, 0, 0, "XYZ"] as Rotation);
-export const cameraTypeAtom = atomWithStorage("r3f/cameraType", "Map");
-export const cameraRelativePosAtom = atomWithStorage("r3f/cameraRelativePos", [0, 4, 7]);
+export const cameraTypeAtom = atomWithStorage("r3f/cameraType", initialCameraType);
+
+export const cameraRelativePosAtom = atomWithStorage("r3f/cameraRelativePos", initialRelativeCameraPosition);
+export const cameraControlsAtom = atom(null as OrbitControlsProps | MapControlsProps);
+export const cameraTargetRefAtom = atom({ current: [0, 0, 0] as Triplet });
 
 export const CameraControls = () => {
-    const {
-        camera,
-        gl: { domElement },
-    } = useThree();
+    const camera = useThree((state) => state.camera);
+    const domElement = useThree((state) => state.gl.domElement);
 
     const controls = useRef<OrbitControlsProps | MapControlsProps>(null);
+    const cameraTargetRef = useAtomValue(cameraTargetRefAtom);
+
+    // Update target from ref (set from Player position)
+    useFrame(() => {
+        (controls.current.target as Vector3).set(...cameraTargetRef.current);
+        controls.current.update();
+    });
 
     const setPosition = useUpdateAtom(cameraPosAtom);
     const setRotation = useUpdateAtom(cameraRotationAtom);
@@ -44,15 +57,20 @@ export const CameraControls = () => {
         setRotation(savedRotation);
     };
 
-    const [{ type, speed, relativePos }, set] = useControls("camera", () => ({
+    const [{ type, speed }, set] = useControls("camera", () => ({
         type: {
             options: cameraTypes,
-            value: safeJSONParse(localStorage.getItem("r3f/cameraType")) || "Map",
+            value: safeJSONParse(localStorage.getItem("r3f/cameraType")) || initialCameraType,
+            onChange: setType,
+            transient: false,
         },
         speed: 250,
-        relativePos: { x: 0, y: 0, z: 0 },
+        relativePos: {
+            ...getRelativeCameraPosFromLocalStorage(),
+            onChange: (update) => setRelativePos(Object.values(update) as Triplet),
+            transient: false,
+        } as any,
         position: buttonGroup({
-            // label: "Position group",
             opts: {
                 Save: () => {
                     setPosition(camera.position.toArray());
@@ -82,38 +100,30 @@ export const CameraControls = () => {
         set({ type: cameraTypes[cursorIndex] });
     }, [cursorIndex]);
 
-    // Update camera type atom on useControls.type.change
-    useEffect(() => {
-        setType(type);
-    }, [type]);
-
-    // Update camera type atom on useControls.type.change
-    useEffect(() => {
-        setRelativePos(Object.values(relativePos));
-    }, [relativePos]);
-
     // Set camera position/rotation from localStorage
     useEffect(() => {
         goToSavedPos();
     }, []);
 
-    // Persist type to localStorage onChange
-    useEffect(() => {
-        if (!(domElement && controls.current)) return;
-        domElement.setAttribute("tabIndex", "0");
-        controls.current.listenToKeyEvents(domElement);
+    const Component =
+        type === "Orbit"
+            ? OrbitControls
+            : type === "Map"
+            ? MapControls
+            : type === "Perspective"
+            ? TrackballControls
+            : null;
 
-        if (!type) return;
-        setType(safeJSONParse(type));
-    }, [type]);
-
-    const Component = type === "Orbit" ? OrbitControls : type === "Map" ? MapControls : null;
+    const setCameraControls = useUpdateAtom(cameraControlsAtom);
 
     return (
         <>
             {Component ? (
                 <Component
-                    ref={controls as any}
+                    ref={(ref) => {
+                        controls.current = ref;
+                        setCameraControls(ref);
+                    }}
                     args={[camera, domElement]}
                     enableZoom={true}
                     maxPolarAngle={Math.PI}
@@ -125,4 +135,20 @@ export const CameraControls = () => {
     );
 };
 
-const cameraTypes = ["Orbit", "Map", "Perspective"];
+const cameraTypes = ["Orbit", "Map"];
+const getRelativeCameraPosFromLocalStorage = () => {
+    const [x, y, z] = safeJSONParse(localStorage.getItem("r3f/cameraRelativePos")) || initialRelativeCameraPosition;
+    return { x, y, z } as { x: number; y: number; z: number };
+};
+
+const useCameraWithArrowKeys = () => {
+    const domElement = useThree((state) => state.gl.domElement);
+    const cameraControls = useAtomValue(cameraControlsAtom);
+
+    // Enable arrow keys to move the camera
+    useEffect(() => {
+        if (!(domElement && cameraControls?.listenToKeyEvents)) return;
+        domElement.setAttribute("tabIndex", "0");
+        cameraControls.listenToKeyEvents(domElement);
+    }, []);
+};

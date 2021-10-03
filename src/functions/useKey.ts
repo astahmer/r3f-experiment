@@ -51,3 +51,54 @@ export const useKey = (key: string, onKeyDown: () => void, onKeyUp: () => void =
         if (e.key === key || e.code === key || e.code === "Key" + key.toUpperCase()) onKeyUp();
     });
 };
+
+let timeout;
+export const useMouseControls = ({
+    onMouseDown,
+    onMouseUp,
+    onMouseMove,
+}: {
+    onMouseDown?: (e: MouseEvent) => void;
+    onMouseUp?: (e: MouseEvent) => void;
+    onMouseMove?: (e: MouseEvent) => void;
+} = {}) => {
+    const ref = useConst({
+        down: false,
+        move: false,
+        x: 0,
+        y: 0,
+    });
+
+    useEventListener(
+        "mousedown",
+        (e) => {
+            ref.down = true;
+            onMouseDown?.(e);
+        },
+        undefined,
+        { passive: true }
+    );
+    useEventListener("mouseup", (e) => {
+        ref.down = false;
+        onMouseUp?.(e);
+    }),
+        undefined,
+        { passive: true };
+
+    useEventListener("mousemove", (e) => {
+        ref.move = true;
+        ref.x = e.clientX;
+        ref.y = e.clientY;
+        onMouseMove?.(e);
+
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            ref.move = false;
+            clearTimeout(timeout);
+        }, 100);
+    }),
+        undefined,
+        { passive: true };
+
+    return ref;
+};
