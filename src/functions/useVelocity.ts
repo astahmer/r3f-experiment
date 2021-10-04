@@ -38,6 +38,23 @@ export const usePosition = (api: PublicApi, { initial = [0, 0, 0], onUpdate }: U
     return pos;
 };
 
+export const useRotation = (api: PublicApi, { initial = [0, 0, 0], onUpdate }: UseVelocityOptions = {}) => {
+    const rRef = useRef<Triplet>(initial);
+    const rotation = useConst<Vector3>((() => new Vector3(...initial)) as any);
+
+    useEffect(
+        () =>
+            api.rotation.subscribe((v) => {
+                rRef.current = v;
+                onUpdate?.(v);
+            }),
+        []
+    );
+    useFrame(() => rotation.set(...rRef.current));
+
+    return rotation;
+};
+
 interface UseVelocityOptions {
     initial?: Triplet;
     onUpdate?: (v: Triplet) => void;

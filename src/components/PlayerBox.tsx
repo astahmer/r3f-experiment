@@ -8,7 +8,7 @@ import { MeshStandardMaterial, Object3D, Vector3 } from "three";
 
 import { CollisionGroup, playerFinalStatesPathAtom } from "@/functions/store";
 import { useKey, useKeyControls, useMouseControls } from "@/functions/useKey";
-import { usePosition, useVelocity } from "@/functions/useVelocity";
+import { usePosition, useRotation, useVelocity } from "@/functions/useVelocity";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { getPlayerMachine } from "../functions/playerMachine";
@@ -42,7 +42,8 @@ export const PlayerBox = () => {
         },
     }));
     const vel = useVelocity(api, { initial: initialPosT });
-    const [state, send, service] = useMachine(() => getPlayerMachine({ box, api, vel, controls }));
+    const rotation = useRotation(api);
+    const [state, send, service] = useMachine(() => getPlayerMachine({ box, api, vel, rotation, controls }));
 
     useGravity({ api });
     useKey("Space", () => {
@@ -90,7 +91,7 @@ export const PlayerBox = () => {
     }, [finalStatesPath]);
 
     return (
-        <a.mesh name="player" ref={box} material={getMaterial(state)}>
+        <a.mesh name="player" ref={box} material={getMaterial(state)} userData={{ box, api, state }}>
             <boxGeometry args={[1, 1, 1]} />
             <PlayerCompass />
         </a.mesh>
