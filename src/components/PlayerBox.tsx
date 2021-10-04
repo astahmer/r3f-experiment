@@ -12,7 +12,7 @@ import { usePosition, useVelocity } from "@/functions/useVelocity";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { getPlayerMachine } from "../functions/playerMachine";
-import { cameraRelativePosAtom, cameraTargetRefAtom } from "./CameraControls";
+import { cameraRelativePosAtom, cameraTargetRefAtom, cameraTypeAtom } from "./CameraControls";
 import { PlayerCompass } from "./Compass";
 import { useGravity } from "./Gravity";
 
@@ -49,10 +49,11 @@ export const PlayerBox = () => {
         send("JUMP");
         send("SET_GROUNDED", { isGrounded: false });
     });
-    useKey("r", () => service.start());
+    useKey("r", () => service.start()); // restarts the machine so it doesn't remain like before the HMR update
 
     const cameraRelativePos = useAtomValue(cameraRelativePosAtom);
     const cameraTargetRef = useAtomValue(cameraTargetRefAtom);
+    const cameraType = useAtomValue(cameraTypeAtom);
     const setPosition = (position: Triplet) => (cameraTargetRef.current = position);
 
     const prevPos = useRef([0, 0, 0] as Triplet);
@@ -67,7 +68,7 @@ export const PlayerBox = () => {
     const mouseRef = useMouseControls();
     useFrame(({ camera }) => {
         // Update camera position and rotation
-        if (!mouseRef.down) {
+        if (!mouseRef.down && cameraType !== "Free") {
             // Calculate ideal camera position
             const cameraOffset = relativeCameraOffset
                 .clone()

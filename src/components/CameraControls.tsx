@@ -106,7 +106,7 @@ export const CameraControls = () => {
     }, []);
 
     const Component =
-        type === "Orbit"
+        type === "Orbit" || type === "Free"
             ? OrbitControls
             : type === "Map"
             ? MapControls
@@ -135,7 +135,7 @@ export const CameraControls = () => {
     );
 };
 
-const cameraTypes = ["Orbit", "Map"];
+const cameraTypes = ["Orbit", "Map", "Free"];
 const getRelativeCameraPosFromLocalStorage = () => {
     const [x, y, z] = safeJSONParse(localStorage.getItem("r3f/cameraRelativePos")) || initialRelativeCameraPosition;
     return { x, y, z } as { x: number; y: number; z: number };
