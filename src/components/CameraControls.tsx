@@ -8,6 +8,7 @@ import { buttonGroup, useControls } from "leva";
 import { useEffect, useRef } from "react";
 import { Vector3 } from "three";
 
+import { Gizmo } from "@/components/Gizmo";
 import { successToast } from "@/functions/toasts";
 import { useArrayCursor } from "@/functions/useArrayCursor";
 import { useKey } from "@/functions/useKey";
@@ -131,11 +132,12 @@ export const CameraControls = () => {
                     keyPanSpeed={speed}
                 />
             ) : null}
+            <Gizmo />
         </>
     );
 };
 
-const cameraTypes = ["Orbit", "Map", "Free"];
+const cameraTypes = ["Orbit", "Free"];
 const getRelativeCameraPosFromLocalStorage = () => {
     const [x, y, z] = safeJSONParse(localStorage.getItem("r3f/cameraRelativePos")) || initialRelativeCameraPosition;
     return { x, y, z } as { x: number; y: number; z: number };
