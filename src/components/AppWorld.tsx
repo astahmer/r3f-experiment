@@ -11,9 +11,11 @@ import { Trampoline } from "./Trampoline";
 
 export function AppWorld() {
     const [count, setCount] = useState(0);
-    useKey("r", () => setCount((current) => current + 1));
+    useKey("r", () => {
+        setCount((current) => current + 1);
+        console.clear();
+    });
 
-    const [group, api] = useBox(() => ({ args: [0, 0, 0] }));
     const { gravity, isPaused, isReversed } = useControllableGravity({ folderName: "localGravity" });
     const { areGravitySync } = useControls({ areGravitySync: false });
     const rootGravity = useGravityContext();
