@@ -1,8 +1,9 @@
 import { PublicApi } from "@react-three/cannon";
 import { MutableRefObject } from "react";
-import { Object3D, Vector3 } from "three";
+import { Object3D, Vector3, Vector3Tuple } from "three";
 import { createMachine } from "xstate";
 
+import { settings } from "./settings";
 import { useKeyControls } from "./useKey";
 
 export const getPlayerMachine = ({
@@ -166,15 +167,12 @@ export const getPlayerMachine = ({
         }
     );
 
-const settings = {
-    speed: 30,
-    axis: new Vector3(0, 1, 0),
-    rotationSpeed: 0.08,
-    force: 70,
-    jumpForce: 3000,
-    dashDuration: 300,
-    dashCd: 500,
-    jumpCd: 0,
-    doubleJumpCd: 100,
-    flyCd: 150,
-};
+export interface PlayerMachineContext {
+    getPosition: () => Vector3Tuple;
+    getVelocity: () => Vector3;
+    getRotation: () => Vector3;
+    current: {
+        jumpCount: number;
+        direction: Vector3;
+    };
+}
