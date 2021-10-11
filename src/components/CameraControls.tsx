@@ -36,6 +36,8 @@ export const CameraControls = () => {
     // Update target from ref (set from Player position)
     useFrame(() => {
         (controls.current.target as Vector3).set(...cameraTargetRef.current);
+        const [x, y, z] = cameraTargetRef.current;
+        set({ targetPosition: { x, y, z } });
         controls.current.update();
     });
 
@@ -71,6 +73,7 @@ export const CameraControls = () => {
             onChange: (update) => setRelativePos(Object.values(update) as Triplet),
             transient: false,
         } as any,
+        targetPosition: { x: 0, y: 0, z: 0, disabled: true } as any,
         position: buttonGroup({
             opts: {
                 Save: () => {
