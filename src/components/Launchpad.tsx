@@ -19,7 +19,6 @@ export const Launchpad = ({
     type,
 }: CommonObject & { type?: LaunchpadType; angle?: number }) => {
     const rotation = [0, angle, 0.4] as Triplet;
-    console.log(rotation);
 
     const [box, api] = useBox(() => ({
         type: "Static",
@@ -29,6 +28,8 @@ export const Launchpad = ({
         collisionFilterMask: CollisionGroup.PLAYER,
         onCollideBegin: (e) => {
             const { api, state } = e.body.userData as PlayerData;
+            if (!state?.context) return;
+
             const ctx = state.context;
 
             const vel = ctx.getVelocity();
@@ -36,7 +37,6 @@ export const Launchpad = ({
             const direction = ctx.current.direction as Vector3;
 
             const impulse = getImpulse({ direction, vel, rotation, playerRotation, type });
-            console.log({ direction, vel, rotation, playerRotation, type, impulse });
 
             api.applyImpulse(impulse, ctx.getPosition());
         },
