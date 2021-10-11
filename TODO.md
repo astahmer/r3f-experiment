@@ -15,3 +15,5 @@
 -   [ ] teleport point like tf2 after a few seconds or onClick
 -   [ ] doors
 -   [ ] plank bridge
+
+-   display information on current position of object / current relative position (PackContext)

@@ -1,22 +1,29 @@
-import { useBox } from "@react-three/cannon";
 import { DoubleSide } from "three";
 
 import { CommonObject } from "@/types";
 
-export function DumbBox({ position = [5, 1, 1], color = "grey" }: CommonObject) {
-    const [ref, api] = useBox(() => ({
+import { useObject } from "./Pack";
+
+export function DumbBox({
+    size,
+    position = [5, 1, 1],
+    color = "grey",
+    wireframe = true,
+}: CommonObject & { wireframe?: boolean }) {
+    const [ref, api] = useObject(() => ({
         type: "Static",
-        args: position,
+        args: size || position,
         position,
         mass: 10,
         angularDamping: 1,
         linearDamping: 0.99,
     }));
+    // console.log(position);
 
     return (
         <mesh ref={ref} position={position}>
-            <boxGeometry args={position} />
-            <meshStandardMaterial color={color} side={DoubleSide} />
+            <boxGeometry args={size || position} />
+            <meshStandardMaterial color={color} side={DoubleSide} wireframe={wireframe} />
         </mesh>
     );
 }
