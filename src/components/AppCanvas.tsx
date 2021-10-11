@@ -3,10 +3,12 @@ import { Physics } from "@react-three/cannon";
 import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
 import { Leva } from "leva";
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 
 import { playerFinalStatesPathAtom } from "@/functions/store";
+import { useKey } from "@/functions/useKey";
 
+import { HtmlMaze } from "../maze/HtmlMaze";
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
 import { HUDCompass } from "./Compass";
@@ -14,6 +16,10 @@ import { GravityProvider, useControllableGravity } from "./Gravity";
 
 export const AppCanvas = () => {
     const cameraPos = useAtomValue(cameraPosAtom);
+    const [key, setKey] = useState(0);
+
+    // restarts the machine so it doesn't remain like before the HMR update
+    useKey("r", () => setKey((key) => key + 1));
 
     return (
         <>
@@ -30,6 +36,17 @@ export const AppCanvas = () => {
             <chakra.div pos="absolute" top="0" right="0">
                 <Leva fill hideCopyButton />
                 <PlayerFinalStatePaths />
+            </chakra.div>
+            <chakra.div
+                pos="absolute"
+                boxSize="100%"
+                inset="0"
+                display="flex"
+                justifyContent="center"
+                alignItems="center"
+                pointerEvents="none"
+            >
+                <HtmlMaze key={key} />
             </chakra.div>
         </>
     );
