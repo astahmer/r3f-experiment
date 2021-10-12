@@ -66,7 +66,7 @@ export const createMazeMachine = ({
                     on: { PAUSE: { target: "incomplete" } },
                 },
                 done: {
-                    entry: [() => console.log("done"), "openBorder"],
+                    entry: [() => console.log("done generating"), "openBorder"],
                     invoke: { id: "solver", autoForward: true, src: (ctx) => createSolveMachine({ grid: ctx.grid }) },
                     on: { UPDATE_GRID: { actions: "updateGrid" } },
                 },

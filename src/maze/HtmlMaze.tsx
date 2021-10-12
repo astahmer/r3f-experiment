@@ -78,23 +78,29 @@ export const HtmlMaze = () => {
 
 const Solver = ({ actor }) => {
     const [state, send] = useActor(actor) as any as [AnyState, Function];
-    console.log(printFinalStatesPath(state));
+    console.log(state.context);
 
     return (
-        <HStack pointerEvents="all">
-            <Button
-                onClick={() => send("STEP")}
-                isDisabled={state.matches("done.solving") || state.matches("done.end")}
-            >
-                Solve Step
-            </Button>
-            <Button onClick={() => send("RUN")} isDisabled={state.matches("done.solving") || state.matches("done.end")}>
-                Solve Auto
-            </Button>
-            <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("done.solving")}>
-                Pause solving
-            </Button>
-        </HStack>
+        <>
+            <HStack pointerEvents="all">
+                <Button
+                    onClick={() => send("STEP")}
+                    isDisabled={state.matches("done.solving") || state.matches("done.end")}
+                >
+                    Solve Step
+                </Button>
+                <Button
+                    onClick={() => send("AUTORUN")}
+                    isDisabled={state.matches("done.solving") || state.matches("done.end")}
+                >
+                    Solve Auto
+                </Button>
+                <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("done.solving")}>
+                    Pause solving
+                </Button>
+            </HStack>
+            {printFinalStatesPath(state)}
+        </>
     );
 };
 
