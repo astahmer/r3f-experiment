@@ -22,8 +22,8 @@ export const HtmlMaze = () => {
             onChange: (value) => send("MODE", { value }),
         },
         projection: { value: 1, min: 0, max: 5, step: 1 },
-        width: { value: 5, min: 4, max: 40, step: 2 },
-        height: { value: 5, min: 4, max: 40, step: 2 },
+        width: { value: 6, min: 4, max: 40, step: 2 },
+        height: { value: 6, min: 4, max: 40, step: 2 },
         random: { value: 30, min: 1, max: 100, step: 5 },
         // state: { value: printFinalStatesPath(state), disabled: true },
     });
@@ -65,41 +65,46 @@ export const HtmlMaze = () => {
                     Step
                 </Button>
                 <Button onClick={() => send("RUN")} isDisabled={state.matches("running") || state.matches("done")}>
-                    Run
+                    Auto run
                 </Button>
                 <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("running")}>
                     Pause
                 </Button>
             </HStack>
-            {state.matches("done") && <Solver actor={state.children.solver} />}
+            {state.matches("done") && state.children.solver && <Solver actor={state.children.solver} />}
         </Stack>
     );
 };
 
 const Solver = ({ actor }) => {
     const [state, send] = useActor(actor) as any as [AnyState, Function];
-    console.log(state.context);
+    const lastCurrentCell = state.context.lastBranchSnapshot?.currentCell?.id;
+    // console.log(state.context);
 
     return (
         <>
             <HStack pointerEvents="all">
                 <Button
-                    onClick={() => send("STEP")}
-                    isDisabled={state.matches("done.solving") || state.matches("done.end")}
+                    onClick={() => send("SOLVE_STEP")}
+                    isDisabled={state.matches("stepper.done") || state.context.mode === "auto"}
                 >
                     Solve Step
                 </Button>
                 <Button
-                    onClick={() => send("AUTORUN")}
-                    isDisabled={state.matches("done.solving") || state.matches("done.end")}
+                    onClick={() => send("TOGGLE_MODE")}
+                    isDisabled={state.matches("stepper.done") || state.context.mode === "auto"}
                 >
                     Solve Auto
                 </Button>
-                <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("done.solving")}>
+                <Button
+                    onClick={() => send("TOGGLE_MODE")}
+                    isDisabled={state.matches("stepper.done") || state.context.mode !== "auto"}
+                >
                     Pause solving
                 </Button>
             </HStack>
-            {printFinalStatesPath(state)}
+            <span>{printFinalStatesPath(state)}</span>
+            <span>{lastCurrentCell}</span>
         </>
     );
 };
