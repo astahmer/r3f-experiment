@@ -1,43 +1,35 @@
-import { pickOne } from "@pastable/utils";
+import { pick, pickOne } from "@pastable/utils";
 import { assign, createMachine, send, sendParent } from "xstate";
 
 import { MazeCell } from "./mazeMachine";
 
 export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCell[]>; stepDelayInMs?: number }) => {
     console.log(grid);
+    const start = new Date();
     const paths = grid.flat().filter((cell) => cell.state === "path");
     paths.forEach((cell) => (cell.display = "path"));
 
-    const initialCtx = {
-        grid,
-        unvisitedsRoot: paths,
-        paths: [...paths],
-        rootCell: null as MazeCell,
-        unvisitedsNeighbors: [] as Array<MazeCell>,
-        currentCell: null as MazeCell,
-        steps: [] as Array<MazeCell["id"]>,
-    };
-    const makeSnapshot = (current: typeof initialCtx): typeof initialCtx => ({
-        ...current,
-        grid: [...current.grid],
-        unvisitedsRoot: [...current.unvisitedsRoot],
-        paths: [...initialCtx.paths],
-        rootCell: { ...current.rootCell },
-        unvisitedsNeighbors: [...current.unvisitedsNeighbors],
-        currentCell: { ...current.currentCell },
-        steps: [...current.steps],
-    });
+    const makeSnapshot = (current: Partial<MazeSolverContext>) =>
+        pick(current, ["lastBranchSnapshot", "unvisitedsNeighbors", "steps", "currentCell"]) as LastBranchSnapshot;
 
     return createMachine(
         {
             id: "solver",
             context: {
-                ...initialCtx,
-                lastBranchSnapshot: null as typeof initialCtx,
-                completePaths: [] as Array<Array<MazeCell["id"]>>,
-                currentPaths: [] as Array<Array<MazeCell["id"]>>,
                 mode: "manual",
-            },
+                grid,
+                pathCells: [...paths],
+                //
+                unvisitedsRoot: paths,
+                completePaths: [],
+                //
+                rootCell: null,
+                currentPaths: [],
+                currentCell: null,
+                unvisitedsNeighbors: [],
+                steps: [],
+                lastBranchSnapshot: null,
+            } as MazeSolverContext,
             after: { [stepDelayInMs]: { actions: "autoStep", cond: "isAutoRun" } },
             initial: "atRoot",
             entry: ["drawGrid", "updateGrid"],
@@ -63,7 +55,15 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                         },
                     },
                 },
-                done: { type: "final", entry: [(ctx) => console.log("done solving", ctx)] },
+                done: {
+                    type: "final",
+                    entry: [
+                        (ctx) => {
+                            console.log("done solving", ctx);
+                            console.log((new Date().getTime() - start.getTime()) / 1000);
+                        },
+                    ],
+                },
             },
             on: {
                 TOGGLE_MODE: { actions: ["toggleMode", "autoStep"] },
@@ -99,7 +99,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
         {
             actions: {
                 drawGrid: (ctx) => {
-                    ctx.paths.forEach((cell) => {
+                    ctx.pathCells.forEach((cell) => {
                         if (ctx.steps.includes(cell.id)) cell.display = "blocked";
                         else cell.display = "path";
                     });
@@ -132,10 +132,10 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 resetCurrentPath: assign((ctx) => ({ ...ctx, unvisitedsNeighbors: [], steps: [] })),
                 addLongestPathFromRootAndResetCurrentPaths: assign((ctx) => {
                     const completedPath = ctx.steps.concat(ctx.currentCell.id);
-                    const currentPaths = ctx.currentPaths.concat(completedPath);
+                    const currentPaths = ctx.currentPaths.concat([completedPath]);
                     const longest = Math.max(...currentPaths.map((path) => path.length));
-                    // TODO could be multiple equal longest path ?
-                    const longestPath = currentPaths.find((path) => path.length === longest);
+
+                    const longestPaths = currentPaths.filter((path) => path.length === longest);
 
                     return {
                         ...ctx,
@@ -144,7 +144,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                         currentCell: null,
                         steps: [],
                         currentPaths: [],
-                        completePaths: ctx.completePaths.concat([longestPath]),
+                        completePaths: ctx.completePaths.concat(longestPaths),
                     };
                 }),
                 addCompletePathToCurrentPathList: assign((ctx) => {
@@ -157,7 +157,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                     while (!currentCell && lastBranchSnapshot) {
                         currentCell = lastBranchSnapshot.unvisitedsNeighbors.filter(
                             (cell) => !prevBranch.steps.includes(cell.id)
-                        )[0]; // TODO pickOne instead of first ?
+                        )[0];
 
                         // Check parent branch snapshot
                         if (!currentCell) {
@@ -166,7 +166,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                         }
                     }
 
-                    const steps = lastBranchSnapshot.steps.concat(currentCell.id);
+                    const steps = lastBranchSnapshot.steps.concat(lastBranchSnapshot.currentCell.id, currentCell.id);
                     const unvisitedsNeighbors = lastBranchSnapshot.unvisitedsNeighbors.filter(
                         (cell) => !ctx.steps.concat(currentCell.id).includes(cell.id)
                     );
@@ -229,7 +229,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                     while (!neighbor && lastBranchSnapshot) {
                         neighbor = lastBranchSnapshot.unvisitedsNeighbors.filter(
                             (cell) => !prevBranch.steps.includes(cell.id)
-                        )[0]; // TODO pickOne instead of first ?
+                        )[0];
 
                         // Check parent branch snapshot
                         if (!neighbor) {
@@ -251,8 +251,35 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
     );
 };
 
+export interface MazeSolverContext {
+    mode: "manual" | "auto";
+    grid: Array<MazeCell[]>;
+    /** List of all cells with state === "path" */
+    pathCells: MazeCell[];
+    //
+    //
+    /** Path cells that were not yet tried as rootCell */
+    unvisitedsRoot: MazeCell[];
+    /** List of all longest paths that were completed from different rootCell */
+    completePaths: Array<Array<MazeCell["id"]>>;
+    //
+    //
+    /** Cell from which all possible paths are going to be tried */
+    rootCell: MazeCell;
+    /** List of all current completed paths from a rootCell to a currentCell  */
+    currentPaths: Array<Array<MazeCell["id"]>>;
+    /** Current step cell on which we will pick the next step from its neighbors */
+    currentCell: MazeCell;
+    /** Keeps track of currentCell unvisiteds neighbors */
+    unvisitedsNeighbors: MazeCell[];
+    /** Current path steps (cell.id) */
+    steps: Array<MazeCell["id"]>;
+    /** Last branch (cell before a choice has been made due to multiple unvisiteds neighbors) snasphot (current partial context state) */
+    lastBranchSnapshot: LastBranchSnapshot;
+}
+interface LastBranchSnapshot extends Pick<MazeSolverContext, "steps" | "unvisitedsNeighbors" | "currentCell"> {
+    lastBranchSnapshot: LastBranchSnapshot | null;
+}
+
 const getUnvisitedNeighbors = (cell: MazeCell) =>
     Object.values(cell.neighbors).filter((next) => next && next.state === "path");
-
-// TODO git stash / check prev commit to see if it was already not doing ALL branches
-// context: seems like only the first (oldest) snapshot is used, ignoring the ones made along the way

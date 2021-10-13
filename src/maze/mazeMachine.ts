@@ -11,8 +11,8 @@ import { createSolveMachine } from "./mazeSolverMachine";
  * - Repeat step 2 until C is empty.
  */
 export const createMazeMachine = ({
-    width: widthProp,
-    height: heightProp,
+    width,
+    height,
     stepDelayInMs = 100,
     randomChance = 0.5,
     projection = 0,
@@ -25,15 +25,12 @@ export const createMazeMachine = ({
     projection?: number;
     mode?: MazePickMode;
 }) => {
-    const width = widthProp + 1;
-    const height = heightProp + 1;
-
     const pickWallWithMode = (mode: MazePickMode, walls: MazeCell[]) => {
         if (mode === "both") return randomChance > Math.random() ? pickOne(walls) : last(walls);
         if (mode === "latest") return last(walls);
         if (mode === "random") return pickOne(walls);
     };
-    const getInitialCtx = () => {
+    const getInitialCtx = (width: number, height: number): MazeGeneratorContext => {
         const { grid, list, first, notABorderCell } = getInitialGrid(width, height);
         return {
             grid,
@@ -48,7 +45,7 @@ export const createMazeMachine = ({
     return createMachine(
         {
             initial: "incomplete",
-            context: getInitialCtx(),
+            context: getInitialCtx(width + 1, height + 1),
             states: {
                 incomplete: {
                     on: {
@@ -77,13 +74,36 @@ export const createMazeMachine = ({
             },
             on: {
                 RESET: { target: "incomplete", actions: "reset" },
-                // @ts-ignore
-                MODE: { actions: assign((ctx, e) => ({ ...ctx, mode: e.value })) },
+                MODE: { actions: "setMode" },
+                IMPORT: { target: "done", actions: "import" },
             },
         },
         {
             actions: {
-                reset: assign((ctx) => getInitialCtx()),
+                setMode: assign((ctx, e) => ({ ...ctx, mode: (e as any).value })),
+                import: assign((ctx, e) => {
+                    const states = (e as any).states as Array<MazeCell["state"][]>;
+                    if (!states?.length) return;
+
+                    const updatedCtx = getInitialCtx(states[0].length, states.length);
+                    const statesList = states
+                        .slice(1, -1)
+                        .map((row) => row.slice(1, -1))
+                        .flat();
+
+                    updatedCtx.grid
+                        .slice(1, -1)
+                        .map((row) => row.slice(1, -1))
+                        .flat()
+                        .forEach((v, i) => {
+                            v.state = statesList[i];
+                            v.display = statesList[i];
+                            v.visited = true;
+                        });
+
+                    return { ...ctx, ...updatedCtx };
+                }),
+                reset: assign(() => getInitialCtx(width + 1, height + 1)),
                 step: assign((ctx) => {
                     if (ctx.prevCell?.display === "current") {
                         ctx.prevCell.display = "path";
@@ -175,7 +195,7 @@ export const createMazeMachine = ({
                     return ctx;
                     const borders = ctx.grid
                         .flat()
-                        .filter((cell) => !cell.x || !cell.y || cell.x === width - 1 || cell.y === height - 1);
+                        .filter((cell) => !cell.x || !cell.y || cell.x === width || cell.y === height);
                     const linkedBorders = borders.filter((cell) =>
                         Object.values(cell.neighbors)
                             .filter(Boolean)
@@ -216,7 +236,16 @@ export const createMazeMachine = ({
     );
 };
 
-type MazePickMode = "latest" | "random" | "both";
+interface MazeGeneratorContext {
+    grid: Array<MazeCell[]>;
+    list: MazeCell[];
+    walls: MazeCell[];
+    mode: MazePickMode;
+    prevCell: MazeCell;
+    notABorderCell: (cell: MazeCell) => boolean;
+}
+
+export type MazePickMode = "latest" | "random" | "both";
 
 export interface MazeCell extends GridCell {
     visited: boolean;
