@@ -79,26 +79,26 @@ export const HtmlMaze = () => {
 const Solver = ({ actor }) => {
     const [state, send] = useActor(actor) as any as [AnyState, Function];
     const lastCurrentCell = state.context.lastBranchSnapshot?.currentCell?.id;
-    // console.log(state.context);
+    // console.log(state.context.steps, state.context);
 
     return (
         <>
             <HStack pointerEvents="all">
                 <Button
                     onClick={() => send("SOLVE_STEP")}
-                    isDisabled={state.matches("stepper.done") || state.context.mode === "auto"}
+                    isDisabled={state.matches("done") || state.context.mode === "auto"}
                 >
                     Solve Step
                 </Button>
                 <Button
                     onClick={() => send("TOGGLE_MODE")}
-                    isDisabled={state.matches("stepper.done") || state.context.mode === "auto"}
+                    isDisabled={state.matches("done") || state.context.mode === "auto"}
                 >
                     Solve Auto
                 </Button>
                 <Button
                     onClick={() => send("TOGGLE_MODE")}
-                    isDisabled={state.matches("stepper.done") || state.context.mode !== "auto"}
+                    isDisabled={state.matches("done") || state.context.mode !== "auto"}
                 >
                     Pause solving
                 </Button>

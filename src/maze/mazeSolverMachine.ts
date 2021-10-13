@@ -28,26 +28,6 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
         steps: [...current.steps],
     });
 
-    function drawCurrentStep({
-        ctx,
-        steps,
-        currentCell,
-    }: {
-        ctx: typeof initialCtx;
-        steps: string[];
-        currentCell: MazeCell;
-    }) {
-        ctx.paths.forEach((cell) => {
-            if (cell.id === ctx.rootCell.id) return;
-            if (steps.includes(cell.id)) {
-                cell.display = "blocked";
-            } else {
-                cell.display = "path";
-            }
-        });
-        currentCell.display = "current";
-    }
-
     return createMachine(
         {
             id: "solver",
@@ -60,15 +40,13 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
             },
             after: { [stepDelayInMs]: { actions: "autoStep", cond: "isAutoRun" } },
             initial: "atRoot",
+            entry: ["drawGrid", "updateGrid"],
             states: {
-                atRoot: {
-                    entry: ["setRoot", "updateGrid"],
-                },
+                atRoot: { entry: ["setRoot"] },
                 pathing: {
-                    entry: ["updateGrid"],
-                    initial: "inOnlyFoundPath",
+                    initial: "firstPathFromRoot",
                     states: {
-                        inOnlyFoundPath: {},
+                        firstPathFromRoot: {},
                         inBranch: {},
                         willChangeRoot: {
                             always: [
@@ -92,31 +70,26 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 SOLVE_STEP: [
                     {
                         target: "#solver.pathing.willChangeBranch",
-                        actions: ["resetCurrentPath", "updateGrid"],
+                        actions: "resetCurrentPath",
                         cond: "isDeadEndWithoutSnapshot",
                     },
                     {
                         target: "#solver.pathing.willChangeRoot",
-                        actions: ["addLongestPathFromRootAndResetCurrentPaths", "updateGrid"],
+                        actions: "addLongestPathFromRootAndResetCurrentPaths",
                         cond: { type: "shouldChangePath", mode: "trueIfShouldChangeRoot" },
                     },
                     {
                         target: "#solver.pathing.willChangeBranch",
-                        actions: ["addCompletePathToCurrentPathList", "updateGrid"],
+                        actions: "addCompletePathToCurrentPathList",
                         cond: { type: "shouldChangePath", mode: "trueIfShouldChangeBranch" },
                     },
                     {
-                        target: "#solver.pathing.inOnlyFoundPath",
-                        actions: ["followPathAndMakeSnapbranchIfMultipleUnvisitedsNeighbor", "updateGrid"],
-                        cond: "isUniquePath",
-                    },
-                    {
                         target: "#solver.pathing.inBranch",
-                        actions: ["tryAnotherBranchFromLastSnapshot", "updateGrid"],
+                        actions: "followPath",
                     },
                     {
                         target: "#solver.atRoot",
-                        actions: ["setRoot", "updateGrid"],
+                        actions: "setRoot",
                         cond: "hasUnvisitedsRoot",
                     },
                     { target: "#solver.done" },
@@ -125,15 +98,20 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
         },
         {
             actions: {
+                drawGrid: (ctx) => {
+                    ctx.paths.forEach((cell) => {
+                        if (ctx.steps.includes(cell.id)) cell.display = "blocked";
+                        else cell.display = "path";
+                    });
+
+                    if (ctx.currentCell) ctx.currentCell.display = "current";
+                    if (ctx.rootCell) ctx.rootCell.display = "start";
+                },
                 updateGrid: sendParent((ctx) => ({ type: "UPDATE_GRID", value: ctx.grid })),
                 autoStep: send("SOLVE_STEP"),
                 toggleMode: assign({ mode: (ctx) => (ctx.mode === "auto" ? "manual" : "auto") }),
                 setRoot: assign((ctx) => {
                     const rootCell = ctx.unvisitedsRoot[0];
-                    // console.log({ rootCell, ctx });
-                    ctx.paths.forEach((cell) => (cell.display = "path"));
-                    rootCell.display = "start";
-
                     const current = {
                         ...ctx,
                         completePaths: ctx.completePaths.concat(ctx.steps),
@@ -148,12 +126,11 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
 
                     const lastBranchSnapshot =
                         current.unvisitedsNeighbors.length > 1 ? makeSnapshot(current) : ctx.lastBranchSnapshot;
+
                     return { ...current, lastBranchSnapshot };
                 }),
                 resetCurrentPath: assign((ctx) => ({ ...ctx, unvisitedsNeighbors: [], steps: [] })),
                 addLongestPathFromRootAndResetCurrentPaths: assign((ctx) => {
-                    // console.log("addLongestPathFromRootAndResetCurrentPaths");
-
                     const completedPath = ctx.steps.concat(ctx.currentCell.id);
                     const currentPaths = ctx.currentPaths.concat(completedPath);
                     const longest = Math.max(...currentPaths.map((path) => path.length));
@@ -173,7 +150,6 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 addCompletePathToCurrentPathList: assign((ctx) => {
                     let currentCell: MazeCell;
                     let lastBranchSnapshot = ctx.lastBranchSnapshot;
-                    // console.log("addCompletePathToCurrentPathList");
 
                     let prevBranch = ctx;
 
@@ -191,21 +167,10 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                     }
 
                     const steps = lastBranchSnapshot.steps.concat(currentCell.id);
-                    // console.log("-----WILL CHANGE BRANCH FROM LAST SNAPSHOT", {
-                    //     currentCell,
-                    //     lastBranchSnapshot,
-                    //     ctx,
-                    //     steps,
-                    // });
-
-                    drawCurrentStep({ ctx, steps, currentCell });
-
                     const unvisitedsNeighbors = lastBranchSnapshot.unvisitedsNeighbors.filter(
                         (cell) => !ctx.steps.concat(currentCell.id).includes(cell.id)
                     );
-
                     const completedPath = ctx.steps.concat(ctx.currentCell.id);
-                    // console.log({ unvisitedsNeighbors, completedPath });
 
                     return {
                         ...ctx,
@@ -216,45 +181,12 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                         currentCell,
                     };
                 }),
-                followPathAndMakeSnapbranchIfMultipleUnvisitedsNeighbor: assign((ctx) => {
-                    // console.log("followPathAndMakeSnapbranchIfMultipleUnvisitedsNeighbor");
+                followPath: assign((ctx) => {
                     const neighbors = Object.values(ctx.currentCell.neighbors).filter(
                         (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
                     );
                     const currentCell = neighbors[0];
-
-                    // console.log("no snapshot");
-                    const steps = ctx.steps.concat(currentCell.id);
-
-                    const current = {
-                        ...ctx,
-                        // unvisitedsNeighbors: ctx.unvisitedsNeighbors.slice(1),
-                        unvisitedsNeighbors: getUnvisitedNeighbors(currentCell).filter(
-                            (cell) => !steps.includes(cell.id)
-                        ),
-                        steps,
-                        currentCell,
-                    };
-                    const lastBranchSnapshot =
-                        current.unvisitedsNeighbors.length > 1 ? makeSnapshot(current) : ctx.lastBranchSnapshot;
-                    // console.log("current Cell but no snapshot", { currentCell, ctx, lastBranchSnapshot, steps });
-
-                    drawCurrentStep({ ctx, steps, currentCell });
-
-                    return { ...current, lastBranchSnapshot };
-                }),
-                tryAnotherBranchFromLastSnapshot: assign((ctx) => {
-                    // console.log("tryAnotherBranchFromLastSnapshot");
-
-                    const neighbors = Object.values(ctx.currentCell.neighbors).filter(
-                        (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
-                    );
-                    const currentCell = neighbors[0];
-
-                    const steps = ctx.steps.concat(ctx.currentCell.id);
-                    // console.log("current Cell WITH snapshot", { currentCell, lastBranchSnapshot, ctx, steps });
-
-                    drawCurrentStep({ ctx, steps, currentCell });
+                    const steps = ctx.steps.concat(ctx.steps.includes(ctx.currentCell.id) ? [] : ctx.currentCell.id);
 
                     const current = {
                         ...ctx,
@@ -273,11 +205,8 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
             },
             guards: {
                 hasUnvisitedsRoot: (ctx) => Boolean(ctx.unvisitedsRoot.length),
-                // hasNoUnvisitedsRoot: (ctx) => !ctx.unvisitedsRoot.length,
                 isAutoRun: (ctx) => ctx.mode === "auto",
                 hasBranchSnapshot: (ctx) => Boolean(ctx.lastBranchSnapshot),
-                // canBranch: (ctx) => Boolean(ctx.currentCell || ctx.lastBranchSnapshot),
-                isUniquePath: (ctx) => Boolean(ctx.currentCell && !ctx.lastBranchSnapshot),
                 isDeadEndWithoutSnapshot: (ctx) => {
                     const neighbors = Object.values(ctx.currentCell?.neighbors || {}).filter(
                         (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
@@ -286,14 +215,6 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
 
                     return !neighbor && !ctx.lastBranchSnapshot;
                 },
-                // hasUnvisitedsNeighbor: (ctx) => {
-                //     const neighbors = Object.values(ctx.currentCell?.neighbors || {}).filter(
-                //         (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
-                //     );
-                //     const neighbor = pickOne(neighbors);
-
-                //     return Boolean(neighbor);
-                // },
                 shouldChangePath: (ctx, _event, { cond }) => {
                     const neighbors = Object.values(ctx.currentCell.neighbors).filter(
                         (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
@@ -316,8 +237,6 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                             lastBranchSnapshot = (lastBranchSnapshot as any).lastBranchSnapshot;
                         }
                     }
-
-                    // console.log("will change path", { neighbor, lastBranchSnapshot, ctx });
 
                     // @ts-ignore
                     const mode = cond.mode;
