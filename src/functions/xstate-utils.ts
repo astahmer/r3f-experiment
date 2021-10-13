@@ -1,6 +1,6 @@
 import { State } from "xstate";
 
-export type AnyState = State<any, any, any, any>;
+export type AnyState<Context = any> = State<Context, any, any, any>;
 
 export const getFinalStatesPath = (state: AnyState) => {
     const paths = state.toStrings();
