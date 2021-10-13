@@ -5,6 +5,8 @@ import { chakra } from "@chakra-ui/system";
 import { WithChildren, chunk, reverse } from "@pastable/core";
 import { useActor, useMachine } from "@xstate/react";
 import { LevaPanel, useControls, useCreateStore } from "leva";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { AnyInterpreter } from "xstate";
 
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 import { MazeCell, MazePickMode, createMazeMachine } from "@/maze/mazeMachine";
@@ -14,31 +16,109 @@ import { MazeSolverContext } from "./mazeSolverMachine";
 export const HtmlMaze = () => {
     // console.log(printFinalStatesPath(state), maze);
 
+    const { store, mode, projection, width, height, random } = useMazePanel((value) => send("MODE", { value }));
+    const [state, send] = useMachine(() =>
+        createMazeMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode })
+    );
+
+    const maze = state.context.grid;
+    const mazeRef = useRef<Array<MazeCell[]>>(null!);
+    useEffect(() => {
+        mazeRef.current = maze;
+    }, [maze]);
+
+    const getMaze = useCallback(() => mazeRef.current, []);
+
+    return (
+        <>
+            <Stack pointerEvents="none">
+                <MazeGrid maze={maze} />
+                <GeneratorActions state={state} send={send} />
+                <MazeActions getMaze={getMaze} state={state} send={send} />
+                {state.matches("done") && state.children.solver && <SolverActions actor={state.children.solver} />}
+            </Stack>
+            <Portal>
+                <LevaPanel store={store} />
+            </Portal>
+        </>
+    );
+};
+
+const useMazePanel = (onModeChange: (value: MazePickMode) => void) => {
     const store = useCreateStore();
-    const { mode, projection, width, height, random } = useControls(
+    const controls = useControls(
         "maze",
         {
             mode: {
                 options: ["both", "latest", "random"] as Array<MazePickMode>,
                 value: "both" as MazePickMode,
                 transient: false,
-                onChange: (value) => send("MODE", { value }),
+                onChange: onModeChange,
             },
-            projection: { value: 1, min: 0, max: 5, step: 1 },
-            width: { value: 5, min: 4, max: 40, step: 2 },
-            height: { value: 5, min: 4, max: 40, step: 2 },
+            projection: { value: 0, min: 0, max: 5, step: 1 },
+            width: { value: 25, min: 4, max: 40, step: 2 },
+            height: { value: 25, min: 4, max: 40, step: 2 },
             random: { value: 30, min: 1, max: 100, step: 5 },
             // state: { value: printFinalStatesPath(state), disabled: true },
         },
         { store }
     );
-    const [state, send] = useMachine(() =>
-        createMazeMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode })
+
+    return { store, ...controls };
+};
+
+const MazeGrid = ({ maze }: { maze: Array<MazeCell[]> }) => {
+    return (
+        <Flex maxW="80%" maxH="80%" flexDirection="column" pointerEvents="all">
+            <Flex ml="30px">
+                {maze[0].map((_, i) => (
+                    <Cell key={i} display="path" border="none">
+                        x{i}
+                    </Cell>
+                ))}
+            </Flex>
+            {maze.map((rows, y) => (
+                <Flex key={y}>
+                    <Cell display="path" border="none">
+                        y{y}
+                    </Cell>
+                    {rows.map((cell, x) => (
+                        <MazeCellItem key={x} {...cell} />
+                    ))}
+                </Flex>
+            ))}
+        </Flex>
     );
-    const maze = state.context.grid;
+};
+
+function GeneratorActions({ state, send }: { state: AnyState; send: AnyInterpreter["send"] }) {
+    return (
+        <HStack pointerEvents="all">
+            <Button onClick={() => send("RESET")}>Reset</Button>
+            <Button onClick={() => send("STEP")} isDisabled={state.matches("running") || state.matches("done")}>
+                Step
+            </Button>
+            <Button onClick={() => send("RUN")} isDisabled={state.matches("running") || state.matches("done")}>
+                Auto run
+            </Button>
+            <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("running")}>
+                Pause
+            </Button>
+        </HStack>
+    );
+}
+
+const MazeActions = ({
+    getMaze,
+    state,
+    send,
+}: {
+    getMaze: () => Array<MazeCell[]>;
+    state: AnyState;
+    send: AnyInterpreter["send"];
+}) => {
     const exportMaze = () => {
-        console.log(state.context, maze);
-        const serialized = serializeMaze(maze);
+        const serialized = serializeMaze(getMaze());
         const rebuilt = rebuildMaze(serialized);
         prompt("Serialized maze", serialized);
         console.log(serialized, rebuilt);
@@ -53,79 +133,33 @@ export const HtmlMaze = () => {
     };
 
     return (
-        <>
-            <Stack pointerEvents="none">
-                <Flex maxW="80%" maxH="80%" flexDirection="column" pointerEvents="all">
-                    <Flex ml="30px">
-                        {maze[0].map((_, i) => (
-                            <Cell key={i} display="path" border="none">
-                                x{i}
-                            </Cell>
-                        ))}
-                    </Flex>
-                    {maze.map((rows, y) => (
-                        <Flex key={y}>
-                            <chakra.div>
-                                <Cell display="path" border="none">
-                                    y{y}
-                                </Cell>
-                            </chakra.div>
-                            {rows.map((cell, x) => (
-                                <Tooltip label={cell.id} key={x}>
-                                    <div>
-                                        <Cell key={x} display={cell.display}>
-                                            {cell.visited ? "1" : "0"}
-                                        </Cell>
-                                    </div>
-                                </Tooltip>
-                            ))}
-                        </Flex>
-                    ))}
-                </Flex>
-
-                <HStack pointerEvents="all">
-                    <Button onClick={() => send("RESET")}>Reset</Button>
-                    <Button onClick={() => send("STEP")} isDisabled={state.matches("running") || state.matches("done")}>
-                        Step
-                    </Button>
-                    <Button onClick={() => send("RUN")} isDisabled={state.matches("running") || state.matches("done")}>
-                        Auto run
-                    </Button>
-                    <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("running")}>
-                        Pause
-                    </Button>
-                    <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("running")}>
-                        Pause
-                    </Button>
-                </HStack>
-                <HStack pointerEvents="all">
-                    <Button onClick={importMaze} isDisabled={state.matches("running")}>
-                        Import
-                    </Button>
-                    <Button onClick={exportMaze} isDisabled={!state.matches("done")}>
-                        Export
-                    </Button>
-                </HStack>
-                {state.matches("done") && state.children.solver && <Solver actor={state.children.solver} />}
-            </Stack>
-            <Portal>
-                <LevaPanel store={store} />
-            </Portal>
-        </>
+        <HStack pointerEvents="all">
+            <Button onClick={importMaze} isDisabled={state.matches("running")}>
+                Import
+            </Button>
+            <Button onClick={exportMaze} isDisabled={!state.matches("done")}>
+                Export
+            </Button>
+            <Button onClick={() => console.log(state.context)}>Log ctx</Button>
+        </HStack>
     );
 };
+
+const MazeCellItem = memo((cell: MazeCell) => (
+    <Cell display={cell.display} children={cell.id} fontSize="0.5em" fontWeight="bold" color="rgb(0 0 0 / 30%)" />
+));
 
 const Cell = ({
     children,
     display,
     ...props
-}: Pick<MazeCell, "display"> & WithChildren & Omit<FlexProps, "display">) => (
+}: Pick<MazeCell, "display"> & Partial<WithChildren> & Omit<FlexProps, "display">) => (
     <Flex
         boxSize="30px"
         minWidth="30px"
         backgroundColor={colorByState[display]}
-        border="1px solid salmon"
-        color="blue"
+        border="1px solid rgb(250 128 114 / 20%)"
+        color="cadetblue"
         justifyContent="center"
         alignItems="center"
         userSelect="none"
@@ -152,7 +186,7 @@ const rebuildMaze = (serializedMaze: string): Array<MazeCell["state"][]> => {
     return chunk(cells, Number(cols));
 };
 
-const Solver = ({ actor }) => {
+const SolverActions = ({ actor }) => {
     const [state, send] = useActor(actor) as any as [AnyState<MazeSolverContext>, Function];
     const rootCell = state.context.rootCell?.id;
     const lastBranch = state.context.lastBranchSnapshot?.currentCell?.id;
@@ -180,6 +214,7 @@ const Solver = ({ actor }) => {
                 >
                     Pause solving
                 </Button>
+                <Button onClick={() => console.log(state.context)}>Log ctx</Button>
             </HStack>
             <span>{printFinalStatesPath(state)}</span>
             <span>
