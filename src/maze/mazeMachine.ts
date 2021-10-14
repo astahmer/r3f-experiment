@@ -237,7 +237,7 @@ export const createMazeMachine = ({
 };
 
 interface MazeGeneratorContext {
-    grid: Array<MazeCell[]>;
+    grid: MazeGridType;
     list: MazeCell[];
     walls: MazeCell[];
     mode: MazePickMode;
@@ -245,6 +245,7 @@ interface MazeGeneratorContext {
     notABorderCell: (cell: MazeCell) => boolean;
 }
 
+export type MazeGridType = Array<MazeCell[]>;
 export type MazePickMode = "latest" | "random" | "both";
 
 export interface MazeCell extends GridCell {
@@ -255,7 +256,7 @@ export interface MazeCell extends GridCell {
 }
 
 export const getMazeGrid = (width: number, height: number) =>
-    makeGrid(width, height, () => ({ display: "empty", state: "wall", visited: false })) as Array<MazeCell[]>;
+    makeGrid(width, height, () => ({ display: "empty", state: "wall", visited: false })) as MazeGridType;
 
 const makeNotABorderCellFilter = (width: number, height: number) => (cell: MazeCell) =>
     cell.x > 0 && cell.x < width - 1 && cell.y > 0 && cell.y < height - 1;

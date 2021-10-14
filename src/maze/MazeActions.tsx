@@ -1,25 +1,31 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { chunk, reverse } from "@pastable/core";
-import { useActor } from "@xstate/react";
+import { useSelector } from "@xstate/react";
 import { AnyInterpreter } from "xstate";
 
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
-import { MazeCell } from "@/maze/mazeMachine";
+import { MazeCell, MazeGridType } from "@/maze/mazeMachine";
 
 import { MazeSolverContext } from "./mazeSolverMachine";
 
-export function MazeGeneratorActions({ state, send }: { state: AnyState; send: AnyInterpreter["send"] }) {
+export function MazeGeneratorActions({
+    state,
+    send,
+}: {
+    state: "incomplete" | "running" | "done";
+    send: AnyInterpreter["send"];
+}) {
     return (
         <HStack pointerEvents="all">
             <Button onClick={() => send("RESET")}>Reset</Button>
-            <Button onClick={() => send("STEP")} isDisabled={state.matches("running") || state.matches("done")}>
+            <Button onClick={() => send("STEP")} isDisabled={state === "running" || state === "done"}>
                 Step
             </Button>
-            <Button onClick={() => send("RUN")} isDisabled={state.matches("running") || state.matches("done")}>
+            <Button onClick={() => send("RUN")} isDisabled={state === "running" || state === "done"}>
                 Auto run
             </Button>
-            <Button onClick={() => send("PAUSE")} isDisabled={!state.matches("running")}>
+            <Button onClick={() => send("PAUSE")} isDisabled={state !== "running"}>
                 Pause
             </Button>
         </HStack>
@@ -30,15 +36,15 @@ const mazeStateAsCode: Record<MazeCell["state"], number> = { wall: 0, path: 1, s
 const stateCodeAsString = reverse(mazeStateAsCode);
 
 const serializeCell = (cell: MazeCell) => mazeStateAsCode[cell.state];
-export const serializeMaze = (grid: Array<MazeCell[]>) => {
+const serializeMaze = (grid: MazeGridType) => {
     const cols = grid.length;
     const rows = grid[0].length;
     return `${cols}:${rows}/` + grid.flat().map(serializeCell).join(",");
 };
 
-export const rebuildMaze = (serializedMaze: string): Array<MazeCell["state"][]> => {
+const rebuildMaze = (serializedMaze: string): Array<MazeCell["state"][]> => {
     const [size, list] = serializedMaze.split("/");
-    const [cols] = size.split(":");
+    const [rows, cols] = size.split(":");
     const cells = list.split(",").map((state) => stateCodeAsString[state]);
     return chunk(cells, Number(cols));
 };
@@ -48,8 +54,8 @@ export const MazeActions = ({
     state,
     send,
 }: {
-    getMaze: () => Array<MazeCell[]>;
-    state: AnyState;
+    getMaze: () => MazeGridType;
+    state: "incomplete" | "running" | "done";
     send: AnyInterpreter["send"];
 }) => {
     const exportMaze = () => {
@@ -63,57 +69,70 @@ export const MazeActions = ({
         if (!serialized) return;
 
         const rebuilt = rebuildMaze(serialized);
-        // @ts-ignore
         send({ type: "IMPORT", states: rebuilt });
     };
 
     return (
         <HStack pointerEvents="all">
-            <Button onClick={importMaze} isDisabled={state.matches("running")}>
+            <Button onClick={importMaze} isDisabled={state === "running"}>
                 Import
             </Button>
-            <Button onClick={exportMaze} isDisabled={!state.matches("done")}>
+            <Button onClick={exportMaze} isDisabled={state !== "done"}>
                 Export
             </Button>
-            <Button onClick={() => console.log(state.context)}>Log ctx</Button>
+            {/* <Button onClick={() => console.log(state.context)}>Log ctx</Button> */}
         </HStack>
     );
 };
 
+const isDoneSelector = (state: AnyState) => state.matches("done");
+const isAutoSelector = (state: AnyState<MazeSolverContext>) => state.context.mode === "auto";
+
 export const SolverActions = ({ actor }) => {
-    const [state, send] = useActor(actor) as any as [AnyState<MazeSolverContext>, Function];
-    const rootCell = state.context.rootCell?.id;
-    const lastBranch = state.context.lastBranchSnapshot?.currentCell?.id;
-    const currentCell = state.context.currentCell?.id;
-    // console.log(state.context.steps, state.context);
+    const isDone = useSelector(actor, isDoneSelector);
+    const isAuto = useSelector(actor, isAutoSelector);
+
+    const send = actor.send;
 
     return (
         <>
             <HStack pointerEvents="all">
-                <Button
-                    onClick={() => send("SOLVE_STEP")}
-                    isDisabled={state.matches("done") || state.context.mode === "auto"}
-                >
+                <Button onClick={() => send("SOLVE_STEP")} isDisabled={isDone || isAuto}>
                     Solve Step
                 </Button>
-                <Button
-                    onClick={() => send("TOGGLE_MODE")}
-                    isDisabled={state.matches("done") || state.context.mode === "auto"}
-                >
+                <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || isAuto}>
                     Auto Solve
                 </Button>
-                <Button
-                    onClick={() => send("TOGGLE_MODE")}
-                    isDisabled={state.matches("done") || state.context.mode !== "auto"}
-                >
+                <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
                     Pause solving
                 </Button>
-                <Button onClick={() => console.log(state.context)}>Log ctx</Button>
+                <Button onClick={() => console.log(actor.state.context)}>Log ctx</Button>
             </HStack>
-            <span>{printFinalStatesPath(state)}</span>
+            <DebugSolver actor={actor} />
+        </>
+    );
+};
+
+const DebugSolver = ({ actor }: { actor }) => {
+    const rootCell = useSelector(actor, (state: AnyState<MazeSolverContext>) => state.context.rootCell?.id);
+    const lastBranch = useSelector(
+        actor,
+        (state: AnyState<MazeSolverContext>) => state.context.lastBranchSnapshot?.currentCell?.id
+    );
+    const currentCell = useSelector(actor, (state: AnyState<MazeSolverContext>) => state.context.currentCell?.id);
+
+    return (
+        <>
+            <DebugSolverState actor={actor} />
             <span>
                 root: {rootCell} / lastBranch: {lastBranch} / currentCell: {currentCell}
             </span>
         </>
     );
+};
+
+const DebugSolverState = ({ actor }) => {
+    const state = useSelector(actor, (state: AnyState<MazeSolverContext>) => printFinalStatesPath(state));
+
+    return <span>{state}</span>;
 };

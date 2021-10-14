@@ -3,9 +3,9 @@ import { FlexProps } from "@chakra-ui/react";
 import { WithChildren } from "@pastable/core";
 import { memo } from "react";
 
-import { MazeCell } from "@/maze/mazeMachine";
+import { MazeCell, MazeGridType } from "@/maze/mazeMachine";
 
-export const MazeGrid = ({ maze }: { maze: Array<MazeCell[]> }) => {
+export const MazeGrid = ({ maze }: { maze: MazeGridType }) => {
     return (
         <Flex maxW="80%" maxH="80%" flexDirection="column" pointerEvents="all">
             <Flex ml="30px">
@@ -41,7 +41,7 @@ export const Cell = ({
     <Flex
         boxSize="30px"
         minWidth="30px"
-        backgroundColor={colorByState[display]}
+        backgroundColor={colorByDisplayState[display]}
         border="1px solid rgb(250 128 114 / 20%)"
         color="cadetblue"
         justifyContent="center"
@@ -53,7 +53,7 @@ export const Cell = ({
     </Flex>
 );
 
-const colorByState: Record<MazeCell["display"], string> = {
+const colorByDisplayState: Record<MazeCell["display"], string> = {
     empty: "dimgrey",
     wall: "burlywood",
     path: "white",

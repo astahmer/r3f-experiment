@@ -4,12 +4,13 @@ import { useMachine } from "@xstate/react";
 import { LevaPanel } from "leva";
 import { useCallback, useEffect, useRef } from "react";
 
-import { MazeCell, createMazeMachine } from "@/maze/mazeMachine";
+import { MazeGridType, createMazeMachine } from "@/maze/mazeMachine";
 
 import { MazeActions, MazeGeneratorActions, SolverActions } from "./MazeActions";
 import { MazeGrid } from "./MazeGrid";
 import { useMazePanel } from "./useMazePanel";
 
+// TODO check that it still works
 export const HtmlMaze = () => {
     // console.log(printFinalStatesPath(state), maze);
 
@@ -19,7 +20,7 @@ export const HtmlMaze = () => {
     );
 
     const maze = state.context.grid;
-    const mazeRef = useRef<Array<MazeCell[]>>(null!);
+    const mazeRef = useRef<MazeGridType>(null!);
     useEffect(() => {
         mazeRef.current = maze;
     }, [maze]);
@@ -30,8 +31,8 @@ export const HtmlMaze = () => {
         <>
             <Stack pointerEvents="none">
                 <MazeGrid maze={maze} />
-                <MazeGeneratorActions state={state} send={send} />
-                <MazeActions getMaze={getMaze} state={state} send={send} />
+                <MazeGeneratorActions state={state.value as any} send={send} />
+                <MazeActions getMaze={getMaze} state={state.value as any} send={send} />
                 {state.matches("done") && state.children.solver && <SolverActions actor={state.children.solver} />}
             </Stack>
             <Portal>

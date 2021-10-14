@@ -1,9 +1,9 @@
-import { pick } from "@pastable/utils";
+import { last, pick } from "@pastable/utils";
 import { assign, createMachine, send, sendParent } from "xstate";
 
-import { MazeCell } from "./mazeMachine";
+import { MazeCell, MazeGridType } from "./mazeMachine";
 
-export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCell[]>; stepDelayInMs?: number }) => {
+export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType; stepDelayInMs?: number }) => {
     console.log(grid);
     const start = new Date();
     const paths = grid.flat().filter((cell) => cell.state === "path");
@@ -15,6 +15,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
     return createMachine(
         {
             id: "solver",
+            // TOOD use Set instead of arrays ?
             context: {
                 mode: "manual",
                 grid,
@@ -28,14 +29,15 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 currentCell: null,
                 unvisitedsNeighbors: [],
                 steps: [],
+                //
                 lastBranchSnapshot: null,
             } as MazeSolverContext,
-            after: { [stepDelayInMs]: { actions: "autoStep", cond: "isAutoRun" } },
             initial: "atRoot",
             entry: ["drawGrid", "updateGrid"],
             states: {
-                atRoot: { entry: ["setRoot"] },
+                atRoot: { entry: ["setRoot"], after: { [stepDelayInMs]: { actions: "autoStep", cond: "isAutoRun" } } },
                 pathing: {
+                    after: { [stepDelayInMs]: { actions: "autoStep", cond: "isAutoRun" } },
                     initial: "firstPathFromRoot",
                     states: {
                         firstPathFromRoot: {},
@@ -56,8 +58,8 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                     },
                 },
                 done: {
-                    type: "final",
                     entry: [
+                        "addLongestPathFromRootAndResetCurrentPaths",
                         (ctx) => {
                             console.log("done solving", ctx);
                             console.log((new Date().getTime() - start.getTime()) / 1000);
@@ -117,7 +119,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                         completePaths: ctx.completePaths.concat(ctx.steps),
                         //
                         unvisitedsRoot: ctx.unvisitedsRoot.slice(1),
-                        unvisitedsNeighbors: getUnvisitedNeighbors(rootCell),
+                        unvisitedsNeighbors: getPathNeighbors(rootCell),
                         rootCell,
                         currentCell: rootCell,
                         steps: [rootCell.id],
@@ -131,11 +133,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 }),
                 resetCurrentPath: assign((ctx) => ({ ...ctx, unvisitedsNeighbors: [], steps: [] })),
                 addLongestPathFromRootAndResetCurrentPaths: assign((ctx) => {
-                    const completedPath = ctx.steps.concat(ctx.currentCell.id);
-                    const currentPaths = ctx.currentPaths.concat([completedPath]);
-                    const longest = Math.max(...currentPaths.map((path) => path.length));
-
-                    const longestPaths = currentPaths.filter((path) => path.length === longest);
+                    const longestPaths = getLongestsPaths(ctx);
 
                     return {
                         ...ctx,
@@ -150,7 +148,6 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                 addCompletePathToCurrentPathList: assign((ctx) => {
                     let currentCell: MazeCell;
                     let lastBranchSnapshot = ctx.lastBranchSnapshot;
-
                     let prevBranch = ctx;
 
                     // Try backtracing to a branch with unvisiteds neighbors
@@ -190,9 +187,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
 
                     const current = {
                         ...ctx,
-                        unvisitedsNeighbors: getUnvisitedNeighbors(currentCell).filter(
-                            (cell) => !steps.includes(cell.id)
-                        ),
+                        unvisitedsNeighbors: getPathNeighbors(currentCell).filter((cell) => !steps.includes(cell.id)),
                         steps,
                         currentCell,
                     };
@@ -253,7 +248,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
 
 export interface MazeSolverContext {
     mode: "manual" | "auto";
-    grid: Array<MazeCell[]>;
+    grid: MazeGridType;
     /** List of all cells with state === "path" */
     pathCells: MazeCell[];
     //
@@ -274,6 +269,8 @@ export interface MazeSolverContext {
     unvisitedsNeighbors: MazeCell[];
     /** Current path steps (cell.id) */
     steps: Array<MazeCell["id"]>;
+    //
+    //
     /** Last branch (cell before a choice has been made due to multiple unvisiteds neighbors) snasphot (current partial context state) */
     lastBranchSnapshot: LastBranchSnapshot;
 }
@@ -281,5 +278,17 @@ interface LastBranchSnapshot extends Pick<MazeSolverContext, "steps" | "unvisite
     lastBranchSnapshot: LastBranchSnapshot | null;
 }
 
-const getUnvisitedNeighbors = (cell: MazeCell) =>
+const getPathNeighbors = (cell: MazeCell) =>
     Object.values(cell.neighbors).filter((next) => next && next.state === "path");
+
+function getLongestsPaths(ctx: MazeSolverContext) {
+    const completedPath = ctx.currentCell ? ctx.steps.concat(ctx.currentCell.id) : ctx.steps;
+    const currentPaths = ctx.currentPaths.concat([completedPath]);
+    const longest = Math.max(...currentPaths.map((path) => path.length));
+
+    const completePathsJoined = ctx.completePaths.map((path) => path.join(","));
+    const longestPaths = currentPaths.filter(
+        (path) => path.length === longest && !completePathsJoined.includes(path.join(","))
+    );
+    return longestPaths;
+}

@@ -19,7 +19,10 @@ export const AppCanvas = () => {
     const [key, setKey] = useState(0);
 
     // restarts the machine so it doesn't remain like before the HMR update
-    useKey("r", () => setKey((key) => key + 1));
+    useKey("r", () => {
+        setKey((key) => key + 1);
+        console.clear();
+    });
 
     return (
         <>
