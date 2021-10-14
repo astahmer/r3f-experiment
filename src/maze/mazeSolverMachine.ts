@@ -1,4 +1,4 @@
-import { pick, pickOne } from "@pastable/utils";
+import { pick } from "@pastable/utils";
 import { assign, createMachine, send, sendParent } from "xstate";
 
 import { MazeCell } from "./mazeMachine";
@@ -211,7 +211,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: Array<MazeCe
                     const neighbors = Object.values(ctx.currentCell?.neighbors || {}).filter(
                         (next) => next && next.state === "path" && !ctx.steps.includes(next.id)
                     );
-                    const neighbor = pickOne(neighbors);
+                    const neighbor = neighbors[0];
 
                     return !neighbor && !ctx.lastBranchSnapshot;
                 },
