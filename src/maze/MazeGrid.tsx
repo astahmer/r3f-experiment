@@ -3,7 +3,7 @@ import { FlexProps } from "@chakra-ui/react";
 import { WithChildren } from "@pastable/core";
 import { memo } from "react";
 
-import { MazeCell, MazeGridType } from "@/maze/mazeMachine";
+import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
 
 export const MazeGrid = ({ maze }: { maze: MazeGridType }) => {
     return (
@@ -61,4 +61,5 @@ const colorByDisplayState: Record<MazeCell["display"], string> = {
     start: "green",
     current: "yellow",
     end: "salmon",
+    mark: "orange",
 };

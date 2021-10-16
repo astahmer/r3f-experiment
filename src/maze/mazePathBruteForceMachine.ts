@@ -1,25 +1,31 @@
-import { last, pick } from "@pastable/utils";
+import { pick } from "@pastable/utils";
 import { assign, createMachine, send, sendParent } from "xstate";
 
-import { MazeCell, MazeGridType } from "./mazeMachine";
+import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
 
-export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType; stepDelayInMs?: number }) => {
+export const createPathBruteForceMachine = ({
+    grid,
+    stepDelayInMs,
+}: {
+    grid: MazeGridType;
+    stepDelayInMs?: number;
+}) => {
     console.log(grid);
     const start = new Date();
     const paths = grid.flat().filter((cell) => cell.state === "path");
     paths.forEach((cell) => (cell.display = "path"));
 
-    const makeSnapshot = (current: Partial<MazeSolverContext>) =>
+    const makeSnapshot = (current: Partial<MazeBruteForcerContext>) =>
         pick(current, ["lastBranchSnapshot", "unvisitedsNeighbors", "steps", "currentCell"]) as LastBranchSnapshot;
 
     return createMachine(
         {
-            id: "solver",
+            id: "bruteForcer",
             // TOOD use Set instead of arrays ?
             context: {
                 mode: "manual",
                 grid,
-                pathCells: [...paths],
+                pathCells: paths,
                 //
                 unvisitedsRoot: paths,
                 completePaths: [],
@@ -31,7 +37,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType
                 steps: [],
                 //
                 lastBranchSnapshot: null,
-            } as MazeSolverContext,
+            } as MazeBruteForcerContext,
             initial: "atRoot",
             entry: ["drawGrid", "updateGrid"],
             states: {
@@ -44,15 +50,15 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType
                         inBranch: {},
                         willChangeRoot: {
                             always: [
-                                { target: "#solver.atRoot", cond: "hasUnvisitedsRoot" },
-                                { target: "#solver.done" },
+                                { target: "#bruteForcer.atRoot", cond: "hasUnvisitedsRoot" },
+                                { target: "#bruteForcer.done" },
                             ],
                         },
                         willChangeBranch: {
                             always: [
                                 { target: "inBranch", cond: "hasBranchSnapshot", actions: "autoStep" },
-                                { target: "#solver.atRoot", cond: "hasUnvisitedsRoot" },
-                                { target: "#solver.done" },
+                                { target: "#bruteForcer.atRoot", cond: "hasUnvisitedsRoot" },
+                                { target: "#bruteForcer.done" },
                             ],
                         },
                     },
@@ -71,30 +77,30 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType
                 TOGGLE_MODE: { actions: ["toggleMode", "autoStep"] },
                 SOLVE_STEP: [
                     {
-                        target: "#solver.pathing.willChangeBranch",
+                        target: "#bruteForcer.pathing.willChangeBranch",
                         actions: "resetCurrentPath",
                         cond: "isDeadEndWithoutSnapshot",
                     },
                     {
-                        target: "#solver.pathing.willChangeRoot",
+                        target: "#bruteForcer.pathing.willChangeRoot",
                         actions: "addLongestPathFromRootAndResetCurrentPaths",
                         cond: { type: "shouldChangePath", mode: "trueIfShouldChangeRoot" },
                     },
                     {
-                        target: "#solver.pathing.willChangeBranch",
+                        target: "#bruteForcer.pathing.willChangeBranch",
                         actions: "addCompletePathToCurrentPathList",
                         cond: { type: "shouldChangePath", mode: "trueIfShouldChangeBranch" },
                     },
                     {
-                        target: "#solver.pathing.inBranch",
+                        target: "#bruteForcer.pathing.inBranch",
                         actions: "followPath",
                     },
                     {
-                        target: "#solver.atRoot",
+                        target: "#bruteForcer.atRoot",
                         actions: "setRoot",
                         cond: "hasUnvisitedsRoot",
                     },
-                    { target: "#solver.done" },
+                    { target: "#bruteForcer.done" },
                 ],
             },
         },
@@ -236,7 +242,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType
                     // @ts-ignore
                     const mode = cond.mode;
 
-                    // Ifs no unvisted neighbor even in parent branches, that means
+                    // If no unvisted neighbor even in parent branches, that means
                     // We have checked all possible paths branches from that rootCell and must choose another one
                     // If one remains, that means we can try another branch from that rootCell using a previous snapshot
                     return mode === "trueIfShouldChangeRoot" ? !neighbor : Boolean(neighbor);
@@ -246,7 +252,7 @@ export const createSolveMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType
     );
 };
 
-export interface MazeSolverContext {
+export interface MazeBruteForcerContext {
     mode: "manual" | "auto";
     grid: MazeGridType;
     /** List of all cells with state === "path" */
@@ -274,14 +280,14 @@ export interface MazeSolverContext {
     /** Last branch (cell before a choice has been made due to multiple unvisiteds neighbors) snasphot (current partial context state) */
     lastBranchSnapshot: LastBranchSnapshot;
 }
-interface LastBranchSnapshot extends Pick<MazeSolverContext, "steps" | "unvisitedsNeighbors" | "currentCell"> {
+interface LastBranchSnapshot extends Pick<MazeBruteForcerContext, "steps" | "unvisitedsNeighbors" | "currentCell"> {
     lastBranchSnapshot: LastBranchSnapshot | null;
 }
 
 const getPathNeighbors = (cell: MazeCell) =>
     Object.values(cell.neighbors).filter((next) => next && next.state === "path");
 
-function getLongestsPaths(ctx: MazeSolverContext) {
+function getLongestsPaths(ctx: MazeBruteForcerContext) {
     const completedPath = ctx.currentCell ? ctx.steps.concat(ctx.currentCell.id) : ctx.steps;
     const currentPaths = ctx.currentPaths.concat([completedPath]);
     const longest = Math.max(...currentPaths.map((path) => path.length));

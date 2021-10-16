@@ -1,5 +1,6 @@
 import { Triplet } from "@react-three/cannon";
-import { MutableRefObject, Ref } from "react";
+import { ThreeEvent } from "@react-three/fiber";
+import { MutableRefObject, ReactNode, Ref } from "react";
 import { Mesh } from "three";
 
 export interface CommonObject {
@@ -9,4 +10,6 @@ export interface CommonObject {
     color?: string;
     wireframe?: boolean;
     meshRef?: MutableRefObject<Mesh> | Ref<Mesh>;
+    onClick?: (e: ThreeEvent<MouseEvent>) => void;
+    render?: () => ReactNode;
 }

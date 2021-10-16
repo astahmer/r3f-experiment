@@ -1,13 +1,9 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { chunk, reverse } from "@pastable/core";
-import { useSelector } from "@xstate/react";
 import { AnyInterpreter } from "xstate";
 
-import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
-import { MazeCell, MazeGridType } from "@/maze/mazeMachine";
-
-import { MazeSolverContext } from "./mazeSolverMachine";
+import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
 
 export function MazeGeneratorActions({
     state,
@@ -32,23 +28,6 @@ export function MazeGeneratorActions({
     );
 }
 
-const mazeStateAsCode: Record<MazeCell["state"], number> = { wall: 0, path: 1, start: 2, end: 3 };
-const stateCodeAsString = reverse(mazeStateAsCode);
-
-const serializeCell = (cell: MazeCell) => mazeStateAsCode[cell.state];
-const serializeMaze = (grid: MazeGridType) => {
-    const cols = grid.length;
-    const rows = grid[0].length;
-    return `${cols}:${rows}/` + grid.flat().map(serializeCell).join(",");
-};
-
-const rebuildMaze = (serializedMaze: string): Array<MazeCell["state"][]> => {
-    const [size, list] = serializedMaze.split("/");
-    const [rows, cols] = size.split(":");
-    const cells = list.split(",").map((state) => stateCodeAsString[state]);
-    return chunk(cells, Number(cols));
-};
-
 export const MazeActions = ({
     getMaze,
     state,
@@ -68,8 +47,12 @@ export const MazeActions = ({
         const serialized = prompt("Paste the maze grid here");
         if (!serialized) return;
 
-        const rebuilt = rebuildMaze(serialized);
-        send({ type: "IMPORT", states: rebuilt });
+        try {
+            const rebuilt = rebuildMaze(serialized);
+            send({ type: "IMPORT", states: rebuilt });
+        } catch (error) {
+            console.log(error);
+        }
     };
 
     return (
@@ -85,54 +68,19 @@ export const MazeActions = ({
     );
 };
 
-const isDoneSelector = (state: AnyState) => state.matches("done");
-const isAutoSelector = (state: AnyState<MazeSolverContext>) => state.context.mode === "auto";
+const mazeStateAsCode: Record<MazeCell["state"], number> = { wall: 0, path: 1, start: 2, end: 3 };
+const stateCodeAsString = reverse(mazeStateAsCode);
 
-export const SolverActions = ({ actor }) => {
-    const isDone = useSelector(actor, isDoneSelector);
-    const isAuto = useSelector(actor, isAutoSelector);
-
-    const send = actor.send;
-
-    return (
-        <>
-            <HStack pointerEvents="all">
-                <Button onClick={() => send("SOLVE_STEP")} isDisabled={isDone || isAuto}>
-                    Solve Step
-                </Button>
-                <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || isAuto}>
-                    Auto Solve
-                </Button>
-                <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
-                    Pause solving
-                </Button>
-                <Button onClick={() => console.log(actor.state.context)}>Log ctx</Button>
-            </HStack>
-            <DebugSolver actor={actor} />
-        </>
-    );
+const serializeCell = (cell: MazeCell) => mazeStateAsCode[cell.state];
+const serializeMaze = (grid: MazeGridType) => {
+    const cols = grid.length;
+    const rows = grid[0].length;
+    return `${cols}:${rows}/` + grid.flat().map(serializeCell).join(",");
 };
 
-const DebugSolver = ({ actor }: { actor }) => {
-    const rootCell = useSelector(actor, (state: AnyState<MazeSolverContext>) => state.context.rootCell?.id);
-    const lastBranch = useSelector(
-        actor,
-        (state: AnyState<MazeSolverContext>) => state.context.lastBranchSnapshot?.currentCell?.id
-    );
-    const currentCell = useSelector(actor, (state: AnyState<MazeSolverContext>) => state.context.currentCell?.id);
-
-    return (
-        <>
-            <DebugSolverState actor={actor} />
-            <span>
-                root: {rootCell} / lastBranch: {lastBranch} / currentCell: {currentCell}
-            </span>
-        </>
-    );
-};
-
-const DebugSolverState = ({ actor }) => {
-    const state = useSelector(actor, (state: AnyState<MazeSolverContext>) => printFinalStatesPath(state));
-
-    return <span>{state}</span>;
+const rebuildMaze = (serializedMaze: string): Array<MazeCell["state"][]> => {
+    const [size, list] = serializedMaze.split("/");
+    const [rows, cols] = size.split(":");
+    const cells = list.split(",").map((state) => stateCodeAsString[state]);
+    return chunk(cells, Number(cols));
 };

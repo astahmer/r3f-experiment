@@ -7,7 +7,15 @@ import { CommonObject } from "@/types";
 
 import { useObject } from "./Pack";
 
-export function DumbBox({ size, position = [5, 1, 1], color = "grey", wireframe = true, meshRef }: CommonObject) {
+export function DumbBox({
+    size,
+    position = [5, 1, 1],
+    color = "grey",
+    wireframe = true,
+    meshRef,
+    onClick,
+    render,
+}: CommonObject) {
     // TODO get default props from pack provider ?
     const [ref, api] = useObject(() => ({
         type: "Static",
@@ -28,6 +36,8 @@ export function DumbBox({ size, position = [5, 1, 1], color = "grey", wireframe 
             ref={useMergeRefs(ref, meshRef)}
             position={position}
             onClick={(e) => {
+                onClick?.(e);
+
                 const mesh = e.object as DumbBoxMesh;
                 if (colors.some((color) => mesh.material.color.equals(color))) {
                     mesh.material.color.set(colorRef.current);
@@ -40,6 +50,7 @@ export function DumbBox({ size, position = [5, 1, 1], color = "grey", wireframe 
         >
             <boxGeometry args={size || position} />
             <meshStandardMaterial color={color} side={DoubleSide} wireframe={wireframe} />
+            {render?.()}
         </mesh>
     );
 }

@@ -4,9 +4,10 @@ import { useMachine } from "@xstate/react";
 import { LevaPanel } from "leva";
 import { useCallback, useEffect, useRef } from "react";
 
-import { MazeGridType, createMazeMachine } from "@/maze/mazeMachine";
+import { MazeGridType, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
-import { MazeActions, MazeGeneratorActions, SolverActions } from "./MazeActions";
+import { BruteForcerActions } from "./BruteForcerActions";
+import { MazeActions, MazeGeneratorActions } from "./MazeActions";
 import { MazeGrid } from "./MazeGrid";
 import { useMazePanel } from "./useMazePanel";
 
@@ -16,7 +17,7 @@ export const HtmlMaze = () => {
 
     const { store, mode, projection, width, height, random } = useMazePanel((value) => send("MODE", { value }));
     const [state, send] = useMachine(() =>
-        createMazeMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode })
+        createMazeGeneratorMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode })
     );
 
     const maze = state.context.grid;
@@ -33,7 +34,9 @@ export const HtmlMaze = () => {
                 <MazeGrid maze={maze} />
                 <MazeGeneratorActions state={state.value as any} send={send} />
                 <MazeActions getMaze={getMaze} state={state.value as any} send={send} />
-                {state.matches("done") && state.children.solver && <SolverActions actor={state.children.solver} />}
+                {state.matches("done") && state.children.bruteForcer && (
+                    <BruteForcerActions actor={state.children.bruteForcer} />
+                )}
             </Stack>
             <Portal>
                 <LevaPanel store={store} />

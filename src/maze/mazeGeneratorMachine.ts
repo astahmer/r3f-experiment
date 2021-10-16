@@ -2,7 +2,7 @@ import { last, pickOne } from "@pastable/utils";
 import { assign, createMachine } from "xstate";
 
 import { Direction, GridCell, getOppositeDirection, makeGrid } from "./grid";
-import { createSolveMachine } from "./mazeSolverMachine";
+import { createPathFinderMachine } from "./mazePathFinderMachine";
 
 /**
  * - Let C be a list of cells, initially empty. Add one a random cell from the maze to C.
@@ -10,7 +10,7 @@ import { createSolveMachine } from "./mazeSolverMachine";
  *   If there are no unvisited neighbors, remove the cell from C.
  * - Repeat step 2 until C is empty.
  */
-export const createMazeMachine = ({
+export const createMazeGeneratorMachine = ({
     width,
     height,
     stepDelayInMs = 100,
@@ -65,11 +65,10 @@ export const createMazeMachine = ({
                 done: {
                     entry: [() => console.log("done generating"), "openBorder"],
                     invoke: {
-                        id: "solver",
+                        id: "finder",
                         autoForward: true,
-                        src: (ctx) => createSolveMachine({ grid: ctx.grid, stepDelayInMs }),
+                        src: (ctx) => createPathFinderMachine({ grid: ctx.grid, stepDelayInMs }),
                     },
-                    on: { UPDATE_GRID: { actions: "updateGrid" } },
                 },
             },
             on: {
@@ -192,6 +191,10 @@ export const createMazeMachine = ({
                     return { ...ctx, walls, prevCell };
                 }),
                 openBorder: assign((ctx) => {
+                    // Clean display
+                    const paths = ctx.list.filter((cell) => cell.state === "path");
+                    paths.forEach((cell) => (cell.display = "path"));
+
                     return ctx;
                     const borders = ctx.grid
                         .flat()
@@ -226,8 +229,6 @@ export const createMazeMachine = ({
 
                     return { ...ctx };
                 }),
-                // @ts-ignore
-                updateGrid: assign({ grid: (ctx, event) => event.value }),
             },
             guards: {
                 hasVisitedAllCells: (ctx) => ctx.list.every((cell) => cell.visited),
@@ -236,7 +237,7 @@ export const createMazeMachine = ({
     );
 };
 
-interface MazeGeneratorContext {
+export interface MazeGeneratorContext {
     grid: MazeGridType;
     list: MazeCell[];
     walls: MazeCell[];
@@ -251,7 +252,7 @@ export type MazePickMode = "latest" | "random" | "both";
 export interface MazeCell extends GridCell {
     visited: boolean;
     state: "wall" | "path" | "start" | "end";
-    display: "empty" | "wall" | "path" | "blocked" | "start" | "current" | "end";
+    display: "empty" | "wall" | "path" | "blocked" | "start" | "current" | "end" | "mark";
     neighbors: { left?: MazeCell; top?: MazeCell; right?: MazeCell; bottom?: MazeCell };
 }
 

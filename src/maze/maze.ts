@@ -1,6 +1,6 @@
 import { last, pickOne } from "@pastable/utils";
 
-import { MazeCell, getMazeGrid } from "./mazeMachine";
+import { MazeCell, getMazeGrid } from "./mazeGeneratorMachine";
 
 let aaa = 0;
 

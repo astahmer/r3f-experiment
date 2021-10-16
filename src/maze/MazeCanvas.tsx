@@ -11,9 +11,11 @@ import { DumbBoxMesh } from "@/components/DumbBox";
 import { Gizmo } from "@/components/Gizmo";
 import { WallMap } from "@/components/Wall";
 import { useKey } from "@/functions/useKey";
-import { MazeCell, createMazeMachine } from "@/maze/mazeMachine";
+import { MazeCell, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
-import { MazeActions, MazeGeneratorActions, SolverActions } from "./MazeActions";
+import { BruteForcerActions } from "./BruteForcerActions";
+import { MazeActions, MazeGeneratorActions } from "./MazeActions";
+import { PathFinderActions } from "./PathFinderActions";
 import { useMazePanel } from "./useMazePanel";
 
 export const MazeCanvas = () => {
@@ -53,6 +55,7 @@ const CanvasMazeGrid = ({
     width,
     height,
     random,
+    stepDelayInMs,
 }: Omit<ReturnType<typeof useMazePanel>, "store">) => {
     const paintGrid = (list: MazeCell[]) => {
         if (!gridRefs.current.size) return;
@@ -67,7 +70,7 @@ const CanvasMazeGrid = ({
     };
 
     const service = useInterpret(
-        () => createMazeMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode }),
+        () => createMazeGeneratorMachine({ width, height, stepDelayInMs, randomChance: random, projection, mode }),
         {},
         (next) => {
             if (!gridRefs.current.size) return;
@@ -77,18 +80,31 @@ const CanvasMazeGrid = ({
     const send = service.send;
 
     const state = useSelector(service, (state) => state.value);
-    const solver = useSelector(service, (state) => state.children.solver);
+    const bruteForcer = useSelector(service, (state) => state.children.bruteForcer);
+    const finder = useSelector(service, (state) => state.children.finder);
     const maze = useSelector(service, (state) => state.context.grid);
 
     useEffect(() => {
-        if (!solver) return;
+        if (!bruteForcer) return;
 
-        const sub = solver.subscribe(() => {
+        const sub = bruteForcer.subscribe(() => {
             if (!gridRefs.current.size) return;
+
             paintGrid(maze.flat());
         });
         return sub.unsubscribe;
-    }, [solver]);
+    }, [bruteForcer]);
+
+    useEffect(() => {
+        if (!finder) return;
+
+        const sub = finder.subscribe(() => {
+            if (!gridRefs.current.size) return;
+
+            paintGrid(maze.flat());
+        });
+        return sub.unsubscribe;
+    }, [finder]);
 
     const gridRefs = useRef(new Map<MazeCell["id"], DumbBoxMesh>());
 
@@ -97,13 +113,30 @@ const CanvasMazeGrid = ({
             {maze && (
                 <WallMap
                     position={[-width / 2, 0, -height / 2]}
-                    wallMap={maze
-                        .flat()
-                        .map((cell) => [
-                            cell.x,
-                            cell.y,
-                            { wireframe: false, meshRef: (node) => gridRefs.current.set(cell.id, node as DumbBoxMesh) },
-                        ])}
+                    wallMap={maze.flat().map((cell) => [
+                        cell.x,
+                        cell.y,
+                        {
+                            wireframe: false,
+                            meshRef: (node) => gridRefs.current.set(cell.id, node as DumbBoxMesh),
+                            // onClick: () => console.log(cell),
+                            render: () => (
+                                <Html position={[0, 0, 0]}>
+                                    <chakra.span
+                                        position="absolute"
+                                        transform="translate3d(-50%, -50%, 0)"
+                                        fontSize="0.5em"
+                                        fontWeight="bold"
+                                        color="rgb(0 0 0 / 30%)"
+                                        userSelect="none"
+                                        pointerEvents="none"
+                                    >
+                                        {cell.id}
+                                    </chakra.span>
+                                </Html>
+                            ),
+                        },
+                    ])}
                 />
             )}
             <Html prepend>
@@ -113,7 +146,10 @@ const CanvasMazeGrid = ({
                             <Stack pointerEvents="none">
                                 <MazeGeneratorActions state={state as any} send={send} />
                                 <MazeActions getMaze={() => maze} state={state as any} send={send} />
-                                {state === "done" && solver && <SolverActions actor={solver} />}
+                                {state === "done" && bruteForcer && <BruteForcerActions actor={bruteForcer} />}
+                                {state === "done" && finder && (
+                                    <PathFinderActions actor={finder} paintMaze={() => paintGrid(maze.flat())} />
+                                )}
                             </Stack>
                         </chakra.div>
                     </Portal>
@@ -130,5 +166,6 @@ const colorByDisplayState: Record<MazeCell["display"], string> = {
     blocked: "cadetblue",
     start: "green",
     current: "yellow",
-    end: "blue",
+    end: "red",
+    mark: "darkblue",
 };
