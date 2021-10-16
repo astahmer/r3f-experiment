@@ -17,3 +17,24 @@
 -   [ ] plank bridge
 
 -   display information on current position of object / current relative position (PackContext)
+
+11:11/0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,0,0,1,0,1,0,0,1,1,1,0,0,0,1,0,1,1,1,1,0,1,0,0,0,1,1,0,0,1,0,1,1,1,0,0,0,1,1,1,1,0,0,0,1,0,0,1,1,0,1,0,1,1,1,1,0,0,1,0,0,1,0,0,1,0,1,0,0,1,0,1,1,1,1,1,0,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0
+
+11:11/0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,1,0,1,0,0,0,0,0,1,0,0,1,0,1,1,1,0,1,1,1,0,0,1,1,1,0,1,1,1,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,1,1,1,1,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,1,0,0,1,1,1,0,0,1,1,1,1,0,0,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+11:11/0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,1,1,1,1,0,0,1,1,1,0,1,0,0,0,1,0,0,1,0,1,1,1,0,0,1,1,0,0,1,0,0,1,0,1,1,1,0,0,0,1,1,1,1,1,1,0,1,1,0,0,1,0,1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,0,0,1,0,0,0,1,1,1,1,0,0,1,1,0,0,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+3 next at start
+11:11/0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,1,0,1,0,0,1,1,1,1,1,0,1,1,1,0,0,1,0,1,0,1,1,1,1,0,0,0,1,0,1,1,1,0,1,0,1,0,0,1,0,0,1,0,0,1,0,1,0,0,1,1,1,1,0,0,1,0,1,0,0,1,0,1,0,1,1,1,0,1,0,0,1,0,1,0,1,0,1,1,1,0,0,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0
+
+// return;
+
+                        // TOOD plutôt que de concatener les chemins complets (chaque étape)
+                        // essayer de noter dans un array branchSteps les branchCells par lesquelles on est passé
+                        // -> plutôt que d'avoir [1/1, 1/2, 1/3, 2/3]
+                        // -> avoir [1/1, 2/3]
+                        // et ensuite juste check qu'on est pas déjà passé 2x sur la même branchCell
+
+                        // TODO rm branchCells next to another untill none are close to any other ?
+                        // TODO for each longestPath, add the only possible subPath remaining that endsWith the 1st step of that longestPath
+                        // TODO re-use parts of already computed subPaths rather than recomputing it recursively h24

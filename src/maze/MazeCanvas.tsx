@@ -167,5 +167,5 @@ const colorByDisplayState: Record<MazeCell["display"], string> = {
     start: "green",
     current: "yellow",
     end: "red",
-    mark: "darkblue",
+    mark: "cyan",
 };

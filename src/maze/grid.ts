@@ -56,4 +56,11 @@ const oppositesByDir: Record<Direction, Direction> = { left: "right", top: "bott
 
 export const getRandomDirection = () => pickOne(directions);
 export const getOppositeDirection = (dir: Direction) => oppositesByDir[dir];
+export const getWentDirectionFromTo = (from: GridCell, to: GridCell): Direction => {
+    if (from.x < to.x) return "right";
+    if (from.x > to.x) return "left";
+    if (from.y < to.y) return "bottom";
+    if (from.y > to.y) return "top";
+};
+
 export type Direction = keyof GridCell["neighbors"];

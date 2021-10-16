@@ -1,14 +1,15 @@
-import { last } from "@pastable/core";
+import { first, last } from "@pastable/core";
 import { ContextFrom } from "xstate";
-import { raise } from "xstate/lib/actions";
+import { choose, raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
 
+import { getWentDirectionFromTo } from "./grid";
 import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
 
 export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType; stepDelayInMs: number }) => {
     const paths = grid.flat().filter((cell) => cell.state === "path");
     const branchCells = paths.filter((cell) => getPathNeighbors(cell).length > 2);
-    const first = branchCells[0];
+    const firstBranch = branchCells[0];
 
     const model = createModel({
         mode: "manual" as "manual" | "auto",
@@ -16,12 +17,24 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
         pathCells: paths,
         /** Every cells that have more than 2 paths possible (=intersection) to go from */
         branchCells: branchCells.map((cell) => cell.id),
-        unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== first.id),
-        rootBranchCell: first,
-        unvisitedsDirections: getPathNeighbors(first),
+        unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
+        rootBranchCell: firstBranch,
+        unvisitedsDirections: getPathNeighbors(firstBranch),
         currentPaths: [] as Array<Array<MazeCell["id"]>>,
-        currentCell: first,
-        steps: [first.id] as Array<MazeCell["id"]>,
+        currentCell: firstBranch,
+        steps: [firstBranch.id] as Array<MazeCell["id"]>,
+        /** Every closest other branchCells in each direction for each branchCells   */
+        branchNodes: new Map(
+            branchCells.map((cell) => [
+                cell.id,
+                {
+                    left: undefined as MazeCell,
+                    top: undefined as MazeCell,
+                    right: undefined as MazeCell,
+                    bottom: undefined as MazeCell,
+                },
+            ])
+        ),
     });
 
     return model.createMachine(
@@ -37,7 +50,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     states: {
                         pathing: {},
                         willChangePath: {
-                            entry: "addStepsToCurrentPaths",
+                            entry: ["addStepsToCurrentPaths"],
                             always: [
                                 { target: "willChangeBranch", cond: "hasUnvisitedsDirections" },
                                 { target: "willChangeRoot", cond: "hasUnvisitedsBranchCells" },
@@ -45,13 +58,19 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                             ],
                         },
                         willChangeRoot: { entry: "setRoot" },
-                        willChangeBranch: { entry: "setCurrentCell" },
+                        willChangeBranch: {
+                            entry: "setCurrentCell",
+                            always: [
+                                { target: "willChangePath", cond: "isCurrentCellAnotherBranchCell" },
+                                { target: "pathing" },
+                            ],
+                        },
                     },
                     on: {
                         TOGGLE_MODE: { actions: ["toggleMode", raise("FINDER_STEP")] },
                         FINDER_STEP: [
                             { target: "finding.willChangePath", cond: "hasReachedDeadEnd" },
-                            { target: "finding.willChangePath", actions: "step", cond: "hasReachedAnotherBranchCell" },
+                            { target: "finding.willChangePath", cond: "hasReachedAnotherBranchCell" },
                             { target: "finding.pathing", actions: "step" },
                         ],
                     },
@@ -68,51 +87,6 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                         );
 
                         console.log(subPathsByBranches);
-
-                        return;
-
-                        const completedPaths: Array<MazeCell["id"][]> = [];
-                        const completedPathsByStart: Record<
-                            MazeCell["id"],
-                            Array<MazeCell["id"][]>
-                        > = Object.fromEntries(branchCells.map((cell) => [cell.id, []]));
-
-                        function traverseSubPath(subPath: Array<MazeCell["id"]>, currentSteps: Array<MazeCell["id"]>) {
-                            const endsWithId = last(subPath);
-                            const nextBranch = subPathsByBranches[endsWithId];
-
-                            // Reached a dead-end
-                            if (!nextBranch) {
-                                const path = currentSteps.concat(subPath);
-                                completedPathsByStart[path[0]].push(path);
-                                console.log(completedPathsByStart, completedPaths);
-                                return completedPaths.push(path);
-                            }
-
-                            const nextSteps = currentSteps.concat(subPath.slice(0, -1));
-                            const branches = nextBranch.filter(
-                                (nextSubPath) => !nextSteps.some((step) => nextSubPath.includes(step))
-                            );
-
-                            // Reached a point where we would be stepping twice on the same cell
-                            if (!branches.length) {
-                                completedPathsByStart[nextSteps[0]].push(nextSteps);
-                                console.log(completedPathsByStart, completedPaths);
-                                return completedPaths.push(nextSteps);
-                            }
-
-                            branches.forEach((nextSubPath) => traverseSubPath(nextSubPath, nextSteps));
-                        }
-
-                        branchCells.forEach((branch) =>
-                            subPathsByBranches[branch.id].forEach((subPath) => traverseSubPath(subPath, []))
-                        );
-
-                        const longest = Math.max(...completedPaths.map((path) => path.length));
-                        const longestPaths = completedPaths.filter((path) => path.length === longest);
-
-                        console.log(longestPaths);
-                        // TODO rm branchCells next to another untill none are close to any other
                     },
                 },
             },
@@ -143,19 +117,23 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                         steps: [rootBranchCell.id],
                     };
                 }),
-                addStepsToCurrentPaths: model.assign((ctx) => ({
-                    ...ctx,
-                    currentPaths: ctx.currentPaths.concat([ctx.steps]),
-                    steps: [],
-                })),
                 setCurrentCell: model.assign((ctx) => {
                     const currentCell = ctx.unvisitedsDirections[0];
+                    addBranchCellAsNodeDirectionNeighbor(ctx, currentCell);
 
                     return {
                         ...ctx,
                         currentCell,
                         steps: [ctx.rootBranchCell.id, currentCell.id], // only diff with step
                         unvisitedsDirections: ctx.unvisitedsDirections.filter((cell) => cell.id !== currentCell.id),
+                    };
+                }),
+                addStepsToCurrentPaths: model.assign((ctx) => {
+                    addBranchCellAsNodeDirectionNeighbor(ctx, getNextStep(ctx));
+                    return {
+                        ...ctx,
+                        currentPaths: ctx.currentPaths.concat([ctx.steps]),
+                        steps: [],
                     };
                 }),
                 step: model.assign((ctx) => {
@@ -174,7 +152,8 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                 hasReachedDeadEnd: (ctx) => !getNextStep(ctx),
                 hasUnvisitedsDirections: (ctx) => Boolean(ctx.unvisitedsDirections.length),
                 hasUnvisitedsBranchCells: (ctx) => Boolean(ctx.unvisitedsBranchCells.length),
-                hasReachedAnotherBranchCell: (ctx) => ctx.branchCells.includes(getNextStep(ctx).id),
+                isCurrentCellAnotherBranchCell: (ctx) => ctx.branchCells.includes(ctx.currentCell.id),
+                hasReachedAnotherBranchCell: (ctx) => ctx.branchCells.includes(getNextStep(ctx)?.id),
             },
         }
     );
@@ -195,12 +174,23 @@ function getNextStep(ctx: {
     currentCell: MazeCell;
     steps: string[];
 }) {
-    if (!ctx.currentCell) console.log("oui");
-    const steps = ctx.currentCell ? ctx.steps.concat(ctx.currentCell.id) : ctx.steps;
-    const unvisitedsNeighbors = ctx.currentCell
-        ? getPathNeighbors(ctx.currentCell).filter((cell) => !steps.includes(cell.id))
-        : [];
+    const steps = ctx.steps.concat(ctx.currentCell.id);
+    const unvisitedsNeighbors = getPathNeighbors(ctx.currentCell).filter((cell) => !steps.includes(cell.id));
     const currentCell = unvisitedsNeighbors[0];
 
     return currentCell;
 }
+
+const addBranchCellAsNodeDirectionNeighbor = (ctx: MazePathFinderContext, nextCell: MazeCell) => {
+    const firstStepId = ctx.steps[1] || nextCell.id;
+    // We need to have moved at least once to figure out the direction taken from the rootBranchCell
+    if (!firstStepId) return console.log(ctx, getNextStep(ctx));
+
+    // Ignore dead-ends
+    if (!ctx.branchCells.includes(nextCell?.id)) return;
+
+    const firstStepAfterRootBranchCell = ctx.pathCells.find((cell) => cell.id === firstStepId);
+    const wentDirection = getWentDirectionFromTo(ctx.rootBranchCell, firstStepAfterRootBranchCell);
+
+    ctx.branchNodes.get(ctx.rootBranchCell.id)[wentDirection] = nextCell;
+};

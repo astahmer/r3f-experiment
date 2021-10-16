@@ -6,11 +6,11 @@ import { useRef } from "react";
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
-import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
+import { MazeCell } from "./mazeGeneratorMachine";
 import { MazePathFinderContext, getPathNeighbors } from "./mazePathFinderMachine";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
-const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.matches("running");
+const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";
 
 export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () => void }) => {
     const isDone = useSelector(actor, isDoneSelector);
