@@ -2,7 +2,7 @@ import { useMergeRefs } from "@chakra-ui/hooks";
 import { useRef } from "react";
 import { BoxGeometry, Color, DoubleSide, Mesh, MeshStandardMaterial } from "three";
 
-import { useKey } from "@/functions/useKey";
+import { useKey, useMouseControls } from "@/functions/useKey";
 import { CommonObject } from "@/types";
 
 import { useObject } from "./Pack";
@@ -13,7 +13,6 @@ export function DumbBox({
     color = "grey",
     wireframe = true,
     meshRef,
-    onClick,
     render,
 }: CommonObject) {
     // TODO get default props from pack provider ?
@@ -25,9 +24,20 @@ export function DumbBox({
         angularDamping: 1,
         linearDamping: 0.99,
     }));
-    // console.log(position);
     const colorRef = useRef<Color>();
     const clickedColorRef = useRef(0);
+
+    const mouse = useMouseControls();
+    const toggle = (e) => {
+        const mesh = e.object as DumbBoxMesh;
+        if (colors.some((color) => mesh.material.color.equals(color))) {
+            mesh.material.color.set(colorRef.current);
+            return;
+        }
+
+        colorRef.current = mesh.material.color.clone();
+        mesh.material.color.set(colors[clickedColorRef.current % colors.length]);
+    };
 
     useKey("n", () => clickedColorRef.current++);
 
@@ -35,18 +45,8 @@ export function DumbBox({
         <mesh
             ref={useMergeRefs(ref, meshRef)}
             position={position}
-            onClick={(e) => {
-                onClick?.(e);
-
-                const mesh = e.object as DumbBoxMesh;
-                if (colors.some((color) => mesh.material.color.equals(color))) {
-                    mesh.material.color.set(colorRef.current);
-                    return;
-                }
-
-                colorRef.current = mesh.material.color.clone();
-                mesh.material.color.set(colors[clickedColorRef.current % colors.length]);
-            }}
+            onPointerDown={toggle}
+            onPointerOver={(e) => mouse.down && toggle(e)}
         >
             <boxGeometry args={size || position} />
             <meshStandardMaterial color={color} side={DoubleSide} wireframe={wireframe} />
