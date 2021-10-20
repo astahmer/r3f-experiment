@@ -54,6 +54,7 @@ export const MazeActions = ({
             console.log(error);
         }
     };
+    // console.log(serializeMaze(getMaze()));
 
     return (
         <HStack pointerEvents="all">

@@ -2,6 +2,7 @@ import { last, pickOne } from "@pastable/utils";
 import { assign, createMachine } from "xstate";
 
 import { Direction, GridCell, getOppositeDirection, makeGrid } from "./grid";
+import { createPathBruteForceMachine } from "./mazePathBruteForceMachine";
 import { createPathFinderMachine } from "./mazePathFinderMachine";
 
 /**
@@ -64,11 +65,18 @@ export const createMazeGeneratorMachine = ({
                 },
                 done: {
                     entry: [() => console.log("done generating"), "openBorder"],
-                    invoke: {
-                        id: "finder",
-                        autoForward: true,
-                        src: (ctx) => createPathFinderMachine({ grid: ctx.grid, stepDelayInMs }),
-                    },
+                    invoke: [
+                        {
+                            id: "bruteForcer",
+                            autoForward: true,
+                            src: (ctx) => createPathBruteForceMachine({ grid: ctx.grid, stepDelayInMs }),
+                        },
+                        {
+                            id: "finder",
+                            autoForward: true,
+                            src: (ctx) => createPathFinderMachine({ grid: ctx.grid, stepDelayInMs }),
+                        },
+                    ],
                 },
             },
             on: {
