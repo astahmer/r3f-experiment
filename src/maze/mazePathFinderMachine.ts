@@ -7,48 +7,7 @@ import { Direction, getWentDirectionFromTo } from "./grid";
 import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
 
 export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType; stepDelayInMs: number }) => {
-    const paths = grid.flat().filter((cell) => cell.state === "path");
-    const branchCells = paths.filter((cell) => getPathNeighbors(cell).length > 2);
-    const firstBranch = branchCells[0];
-
-    const model = createModel({
-        mode: "manual" as "manual" | "auto",
-        grid,
-        pathCells: paths,
-        pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
-        /** Every cells that have more than 2 paths possible (=intersection) to go from */
-        branchCells: branchCells.map((cell) => cell.id),
-        unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
-        rootBranchCell: firstBranch,
-        unvisitedsDirections: getPathNeighbors(firstBranch),
-        currentPaths: [] as Array<Array<MazeCell["id"]>>,
-        currentCell: firstBranch,
-        steps: [firstBranch.id] as Array<MazeCell["id"]>,
-        /** Every closest other branchCells in each direction for each branchCells   */
-        branchNodes: new Map(
-            branchCells.map((cell) => [
-                cell.id,
-                {
-                    left: undefined as MazeCell,
-                    top: undefined as MazeCell,
-                    right: undefined as MazeCell,
-                    bottom: undefined as MazeCell,
-                },
-            ])
-        ),
-        branchNodesCost: new Map(
-            branchCells.map((cell) => [
-                cell.id,
-                {
-                    left: undefined as number,
-                    top: undefined as number,
-                    right: undefined as number,
-                    bottom: undefined as number,
-                },
-            ])
-        ),
-        branchNeighborNodes: new Map(),
-    });
+    const model = createPathFinderModel(grid);
 
     return model.createMachine(
         {
@@ -92,10 +51,146 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     entry: (ctx) => {
                         console.log(ctx);
 
-                        // TODO compute all minimal vectors [branchCell A -> branchCell B]
-                        // and then just fucking bruteforce make all possible combinations with that ?
+                        const start = new Date();
 
-                        const branchCellIds = ctx.branchCells;
+                        const branchCellIds = ctx.branchCellIds;
+                        const nodesMap = new Map(ctx.branchNodes.entries());
+                        const minimalVectors = branchCellIds
+                            .map((branchId) =>
+                                Object.entries(nodesMap.get(branchId))
+                                    .filter(([_dir, cell]) => cell)
+                                    .map(([dir, cell]) => {
+                                        const steps = ctx.currentPaths.find(
+                                            (path) => path[0] === branchId && last(path) === cell.id
+                                        ) || [branchId, cell.id];
+
+                                        return [
+                                            branchId,
+                                            cell.id,
+                                            // ctx.branchNodesCost.get(branchId)[dir],
+                                            steps.length,
+                                            steps,
+                                        ];
+                                    })
+                            )
+                            .flat() as Array<MazeVector>;
+                        console.log(minimalVectors);
+
+                        type MazeVector = [MazeCell["id"], MazeCell["id"], number, Array<MazeCell["id"]>];
+                        const vectors = [...minimalVectors];
+
+                        const serializeVector = (vec: MazeVector) => vec.slice(0, 3).join(",");
+                        // const deserializeVector = (serialized: string) => serialized.split(",");
+
+                        const vectorsMap = new Map(
+                            minimalVectors.map(
+                                ([start, end, cost, steps]: MazeVector) =>
+                                    [[start, end, cost].join(","), steps] as [string, Array<MazeCell["id"]>]
+                            )
+                        );
+                        const mergedVectorsMap = new Map();
+
+                        let currentVector: MazeVector = vectors[0];
+                        let nextVector: MazeVector;
+                        let mergedVector: MazeVector;
+                        let mergedVectorSerialized: string;
+
+                        const hasCommonStep = ([start, end]: MazeVector, [first, second]: MazeVector) =>
+                            start === first || start === second || end === first || end === second;
+                        const getCommonStep = ([start, end]: MazeVector, [first, second]: MazeVector) => {
+                            if (start === first) return start;
+                            if (start === second) return start;
+                            if (end === first) return end;
+                            if (end === second) return end;
+                        };
+                        const mergeVector = (aaa: MazeVector, bbb: MazeVector): MazeVector => {
+                            const common = getCommonStep(aaa, bbb);
+                            const [aStart, aEnd, _aCost, aSteps] = aaa;
+                            const [bStart, bEnd, _bCost, bSteps] = bbb;
+
+                            const [start, end] = [aStart, aEnd]
+                                .concat([bStart, bEnd])
+                                .filter((step) => step !== common);
+
+                            const orderedStart =
+                                start === aStart ? aSteps.slice(1) : [...aSteps].reverse().slice(0, -1);
+                            const orderedEnd = common === bStart ? bSteps : [...bSteps].reverse();
+
+                            const steps = orderedStart.concat(orderedEnd);
+                            const cost = steps.length;
+
+                            // console.log({
+                            //     common,
+                            //     start,
+                            //     end,
+                            //     steps,
+                            //     inBetween,
+                            //     oldinBetween,
+                            //     aStart,
+                            //     aEnd,
+                            //     aSteps,
+                            //     bStart,
+                            //     bEnd,
+                            //     bSteps,
+                            // });
+
+                            return [start, end, cost, steps];
+                        };
+                        const isSameVector = (aaa: MazeVector, bbb: MazeVector) =>
+                            serializeVector(aaa) === serializeVector(bbb);
+
+                        const canMerge = (next: MazeVector) => {
+                            if (!hasCommonStep(currentVector, next)) return false;
+                            if (isSameVector(currentVector, next)) return false; // cant have the same from/to/cost (TODO check steps ?)
+
+                            mergedVector = mergeVector(currentVector, next);
+                            // console.log(mergedVector, currentVector, next);
+                            if (mergedVector[0] === mergedVector[1]) return false; // cant merge with self
+
+                            // console.log(mergedVector, currentVector, next);
+                            if (mergedVector.filter(Boolean).length !== 4) return false; // something went wrong ?
+
+                            if (mergedVector[3].length !== new Set(mergedVector[3]).size) return; // went twice on the same cell
+
+                            mergedVectorSerialized = serializeVector(mergedVector);
+                            // console.log(
+                            //     {
+                            //         isOk: !vectorsMap.has(mergedVectorSerialized),
+                            //         mergedVector,
+                            //         currentVector,
+                            //         next,
+                            //         mergedVectorSerialized,
+                            //     },
+                            //     vectorsMap
+                            // );
+                            return !vectorsMap.has(mergedVectorSerialized);
+                        };
+
+                        let safe = 0;
+                        checkNext: do {
+                            nextVector = vectors.find(canMerge);
+
+                            if (++safe > 12000) break; // safety
+                            if (!nextVector) {
+                                let i = 0;
+                                for (i; i < vectors.length; i++) {
+                                    currentVector = vectors[i];
+                                    nextVector = vectors.find(canMerge);
+                                    if (nextVector) continue checkNext;
+                                }
+
+                                break;
+                            }
+
+                            vectorsMap.set(mergedVectorSerialized, mergedVector[3]);
+                            mergedVectorsMap.set(mergedVectorSerialized, mergedVector[3]);
+                            vectors.push(mergedVector);
+                        } while (nextVector);
+
+                        console.log(vectorsMap, mergedVectorsMap, { safe });
+
+                        const interBranchPaths: Array<MazeCell["id"][]> = [...vectorsMap.values()];
+
                         const subPathsByBranches: Record<
                             MazeCell["id"],
                             Array<MazeCell["id"][]>
@@ -106,273 +201,11 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                             }),
                             {}
                         );
-                        // const branchNeighborNodesId = [...ctx.branchNeighborNodes.keys()];
-                        // branchNeighborNodesId.forEach(
-                        //     (branchId) =>
-                        //         (subPathsByBranches[branchId] = ctx.currentPaths
-                        //             .filter((path) => path[1] === branchId)
-                        //             .map((path) => path.slice(1)))
-                        // );
+                        console.log(subPathsByBranches);
 
-                        console.log("subPathsByBranches", subPathsByBranches);
-                        // return;
-
-                        const completeNodePaths: Array<MazeBranchSteps> = [];
-                        // const nodesMap = new Map([...ctx.branchNodes.entries(), ...ctx.branchNeighborNodes.entries()]);
-                        const nodesMap = new Map([...ctx.branchNodes.entries()]);
-                        console.log("nodesMap", nodesMap);
-
-                        let currentCellId = branchCellIds[0];
-                        let unvisitedsBranchCells = branchCellIds
-                            // .concat(branchNeighborNodesId)
-                            .filter((cellId) => cellId !== currentCellId);
-                        let nodePath = [["root", ctx.pathCellsMap[currentCellId]]] as MazeBranchSteps,
-                            unvisitedsNeighborDirections: MazeBranchSteps = [];
-                        let nextCell: MazeCell, direction: MazeBranchDirection;
-
-                        let count = 0;
-
-                        // Visit each branchCell exactly once
-                        // Try to go as far as possible using branchNodes (closest neighbors)
-                        // before taking the next branchCells from the unvisiteds ones
-                        while (unvisitedsBranchCells.length) {
-                            count++;
-                            if (count > 500) break;
-
-                            unvisitedsNeighborDirections = (
-                                Object.entries(nodesMap.get(currentCellId)) as Array<[Direction, MazeCell]>
-                            ).filter(([_dir, cell]) => cell && unvisitedsBranchCells.includes(cell.id));
-
-                            // No more branchNodes, switch to the next unvisited branchCell
-                            if (!unvisitedsNeighborDirections.length) {
-                                if (!unvisitedsBranchCells.length) break;
-
-                                currentCellId = unvisitedsBranchCells[0];
-                                unvisitedsBranchCells = unvisitedsBranchCells.filter(
-                                    (cellId) => cellId !== currentCellId
-                                );
-                                // console.log({ currentCellId }, unvisitedsBranchCells);
-
-                                completeNodePaths.push(nodePath);
-
-                                // Reset current path from that branchCell
-                                nodePath = [["root", ctx.pathCellsMap[currentCellId]]];
-                                continue;
-                            }
-
-                            // Take the first unvisited available direction from that branchCell
-                            // const costs = Object.entries(ctx.branchNodesCost.get(currentCellId))
-                            //     .filter(
-                            //         ([dir, cost]) =>
-                            //             cost &&
-                            //             unvisitedsNeighborDirections.find(([neighborDir]) => neighborDir === dir)
-                            //     )
-                            //     .map(([dir, cost]) => cost);
-                            // const maxCost = Math.max(...costs);
-                            // console.log(
-                            //     unvisitedsNeighborDirections,
-                            //     ctx.branchNodesCost.get(currentCellId),
-                            //     costs,
-                            //     maxCost
-                            // );
-                            // [direction, nextCell] = unvisitedsNeighborDirections.find(
-                            //     ([dir]) => ctx.branchNodesCost.get(currentCellId)[dir] === maxCost
-                            // );
-                            [direction, nextCell] = unvisitedsNeighborDirections[0];
-                            // console.log(
-                            //     unvisitedsNeighborDirections,
-                            //     direction,
-                            //     nextCell,
-                            //     currentCellId,
-                            //     nodesMap.get(currentCellId),
-                            //     ctx.branchNodesCost.get(currentCellId)
-                            // );
-                            nodePath.push([direction, nextCell]);
-
-                            // Loop again from there
-                            unvisitedsBranchCells = unvisitedsBranchCells.filter((cellId) => cellId !== nextCell.id);
-                            currentCellId = nextCell.id;
-                            // console.log({ currentCellId, nextCell }, nodePath);
-                        }
-                        if (nodePath.length) completeNodePaths.push(nodePath);
-
-                        // This computes all possible vectors between branchCells in the end
-                        // By merging vectors that are not `final` (= paths that have both start & end branchCell step as visiteds )
-                        // And repeating that step, excluding final vectors
-                        // Until there remains no vectors with unvisiteds start or end branchCell step
-
-                        console.log("completeNodePaths", completeNodePaths.flat());
-                        const vectors: Array<MazeBranchVector> = completeNodePaths
-                            .map((path) => path.map(([dir, cell]) => cell.id))
-                            .map((path) => getAllPathsFromSteps(path))
-                            .map((paths) =>
-                                paths.map((steps: string[]) => {
-                                    const start = first(steps);
-                                    const end = last(steps);
-                                    const vector = [start, end].sort().join(":");
-                                    const shouldReverse = vector !== [start, end].join(":");
-                                    const orderedSteps = shouldReverse ? [...steps].reverse() : steps;
-
-                                    return {
-                                        id: orderedSteps.join(","),
-                                        vector,
-                                        start,
-                                        end,
-                                        steps: orderedSteps,
-                                        inBetween: orderedSteps.slice(1, -1),
-                                    } as MazeBranchVector;
-                                })
-                            )
-                            .flat();
-                        console.log("vectors", vectors);
-
-                        const availableVectors = [...vectors];
-                        let computedVectors = [];
-
-                        let currentVector = vectors[0];
-                        let unvisitedsVectors = vectors.filter((vec) => vec.id !== currentVector.id);
-                        let nextVector: MazeBranchVector, mergedVector: MazeBranchVector;
-
-                        let commonStep: string;
-                        let start: string;
-                        let end: string;
-
-                        let safe = 0;
-                        let loop = 0;
-                        console.log("unvisitedsVectors", unvisitedsVectors);
-                        let isDone = false;
-
-                        while (!isDone) {
-                            if (++safe > 200) break;
-
-                            nextVector = unvisitedsVectors.find(
-                                (next) =>
-                                    currentVector.id !== next.id &&
-                                    (next.start === currentVector.start ||
-                                        next.start === currentVector.end ||
-                                        next.end === currentVector.start ||
-                                        next.end === currentVector.end) &&
-                                    !currentVector.steps.some((step) => next.inBetween.includes(step))
-                            );
-                            console.log(currentVector, nextVector, currentVector.id, unvisitedsVectors);
-                            // console.log(currentVector.vector, { currentVector, nextVector, unvisitedsVectors });
-                            if (!nextVector) {
-                                // TODO reset unvisitedsVectors
-                                if (!unvisitedsVectors.length) {
-                                    loop++;
-                                    console.log({ safe, loop });
-                                    safe = 0;
-                                    unvisitedsVectors = [...availableVectors];
-                                    console.log(computedVectors);
-                                    // if (!computedVectors.length) {
-                                    //     isDone = true;
-                                    // }
-                                    computedVectors = [];
-                                    console.log(unvisitedsVectors);
-
-                                    if (loop > 20) {
-                                        break;
-                                    }
-                                }
-
-                                currentVector = unvisitedsVectors[0];
-                                unvisitedsVectors = unvisitedsVectors.filter((vec) => vec.id !== currentVector.id);
-                                console.log(currentVector, unvisitedsVectors);
-
-                                continue;
-                            }
-
-                            unvisitedsVectors = unvisitedsVectors.filter(
-                                (vec) => vec.id !== currentVector.id && vec.id !== nextVector.id
-                            );
-
-                            commonStep =
-                                currentVector.start === nextVector.start || currentVector.start === nextVector.end
-                                    ? currentVector.start
-                                    : currentVector.end;
-                            [start, end] = [
-                                [currentVector.start, currentVector.end].find((step) => step !== commonStep),
-                                [nextVector.start, nextVector.end].find((step) => step !== commonStep),
-                            ].sort();
-                            // console.log({
-                            //     currentId: currentVector.vector,
-                            //     nextId: nextVector.vector,
-                            //     future: [start, end].join(":"),
-                            //     commonStep,
-                            //     currentVector,
-                            //     nextVector,
-                            // });
-
-                            // TODO concat with reverse if wrong order cause of sort
-                            const orderedSteps =
-                                currentVector.steps[0] === commonStep
-                                    ? [...currentVector.steps].reverse()
-                                    : currentVector.steps;
-                            const nextSteps =
-                                nextVector.steps[0] === commonStep
-                                    ? nextVector.steps.slice(1)
-                                    : [...nextVector.steps].reverse().slice(1);
-                            const steps = orderedSteps.concat(nextSteps);
-
-                            mergedVector = {
-                                id: orderedSteps.concat(nextSteps).join(","),
-                                vector: [start, end].join(":"),
-                                start,
-                                end,
-                                steps: orderedSteps.concat(nextSteps),
-                                inBetween: steps.slice(1, -1),
-                            };
-
-                            currentVector = mergedVector;
-                            // unvisitedsVectors = unvisitedsVectors.filter((vec) => vec.id !== currentVector.id);
-
-                            if (availableVectors.find((vec) => vec.id === mergedVector.id)) {
-                                continue;
-                            }
-
-                            availableVectors.push(mergedVector);
-                            unvisitedsVectors.push(mergedVector);
-                            computedVectors.push(mergedVector);
-                            // console.log({
-                            //     orderedSteps,
-                            //     nextSteps,
-                            //     steps,
-                            //     start,
-                            //     end,
-                            //     commonStep,
-                            //     inBetween: steps.slice(1, -1),
-                            //     mergedVector,
-                            // });
-                        }
-                        console.log("availableVectors", availableVectors, { safe });
-                        console.log("subPathsByBranches", subPathsByBranches);
-
-                        const interBranchPaths = availableVectors.map((vec) =>
-                            vec.steps
-                                .map((step, index) =>
-                                    subPathsByBranches[step].find(
-                                        (subPath) => subPath.slice(-1)[0] === vec.steps[index + 1]
-                                    )
-                                )
-                                .filter(Boolean)
-                                .map((steps, index, arr) =>
-                                    index > 0 && index !== arr.length - 1 ? steps.slice(0, -1) : steps
-                                )
-                                .flat()
-                        );
-
-                        console.log("interBranchPaths", interBranchPaths);
-                        const fullPaths = interBranchPaths.map((steps, index) => {
+                        const fullPaths = interBranchPaths.map((steps) => {
                             if (!steps.length) return steps;
                             const withoutFirst = steps.slice(1);
-
-                            // console.log(
-                            //     steps,
-                            //     index,
-                            //     subPathsByBranches[steps[0]],
-                            //     subPathsByBranches[last(steps)],
-                            //     withoutFirst
-                            // );
 
                             const possiblePreprendedPaths = subPathsByBranches[steps[0]]
                                 .map((subPath) => subPath.slice(0, -1))
@@ -384,9 +217,11 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                             const rawPrependedPath = possiblePreprendedPaths.find(
                                 (path) => path.length === longestPrependedPath
                             );
-                            const prependedPath = nodesMap.has(rawPrependedPath[0])
-                                ? rawPrependedPath.slice(1)
-                                : rawPrependedPath.reverse();
+                            const prependedPath = rawPrependedPath
+                                ? nodesMap.has(rawPrependedPath[0])
+                                    ? rawPrependedPath.slice(1).reverse()
+                                    : [...rawPrependedPath].reverse()
+                                : [];
 
                             const possibleAppendedPaths = subPathsByBranches[last(steps)]
                                 .map((subPath) => subPath.slice(1))
@@ -397,14 +232,28 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                                 (path) => path.length === longestAppendedPath
                             );
 
+                            // console.log({
+                            //     finalSteps: (prependedPath ? prependedPath : []).concat(
+                            //         steps,
+                            //         appendedPath ? appendedPath : []
+                            //     ),
+                            //     steps,
+                            //     possiblePreprendedPaths,
+                            //     longestPrependedPath,
+                            //     rawPrependedPath,
+                            //     prependedPath,
+                            //     possibleAppendedPaths,
+                            //     longestAppendedPath,
+                            //     appendedPath,
+                            // });
                             return (prependedPath ? prependedPath : []).concat(steps, appendedPath ? appendedPath : []);
                         });
 
                         const longestPathSize = Math.max(...fullPaths.map((path) => path.length));
                         const longestPaths = fullPaths.filter((path) => path.length === longestPathSize);
-
-                        console.log("longestPaths", longestPaths, { interBranchPaths, fullPaths });
-                        // console.log(completeNodePaths.map((path) => path.map(([dir, cell]) => `${dir}-${cell.id}`)));
+                        console.log(interBranchPaths);
+                        console.log(longestPaths);
+                        console.log((new Date().getTime() - start.getTime()) / 1000);
                     },
                 },
             },
@@ -442,8 +291,8 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     const pathCost = ctx.steps.length - (currentCell ? 2 : 1);
 
                     // wentDirection === undefined means it's a dead-end, as in there is no branchCell there
-                    if (wentDirection) {
-                        ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection] = pathCost;
+                    if (wentDirection && !ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection]) {
+                        ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection] = pathCost > 0 ? pathCost : 1;
                     }
 
                     return {
@@ -461,8 +310,8 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     const pathCost = steps.length - (nextCell ? 2 : 1);
 
                     // wentDirection === undefined means it's a dead-end, as in there is no branchCell there
-                    if (wentDirection) {
-                        ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection] = pathCost;
+                    if (wentDirection && !ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection]) {
+                        ctx.branchNodesCost.get(ctx.rootBranchCell.id)[wentDirection] = pathCost > 0 ? pathCost : 1;
                     }
 
                     return {
@@ -487,8 +336,8 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                 hasReachedDeadEnd: (ctx) => !getNextStep(ctx),
                 hasUnvisitedsDirections: (ctx) => Boolean(ctx.unvisitedsDirections.length),
                 hasUnvisitedsBranchCells: (ctx) => Boolean(ctx.unvisitedsBranchCells.length),
-                isCurrentCellAnotherBranchCell: (ctx) => ctx.branchCells.includes(ctx.currentCell.id),
-                hasReachedAnotherBranchCell: (ctx) => ctx.branchCells.includes(getNextStep(ctx)?.id),
+                isCurrentCellAnotherBranchCell: (ctx) => ctx.branchCellIds.includes(ctx.currentCell.id),
+                hasReachedAnotherBranchCell: (ctx) => ctx.branchCellIds.includes(getNextStep(ctx)?.id),
             },
         }
     );
@@ -496,19 +345,56 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
 export const getPathNeighbors = (cell: MazeCell) =>
     Object.values(cell.neighbors).filter((next) => next && next.state === "path");
 
-export type MazePathFinderContext = ContextFrom<ReturnType<typeof createPathFinderMachine>>;
+export type MazePathFinderContext = ContextFrom<ReturnType<typeof createPathFinderModel>>;
 
-function getNextStep(ctx: {
-    grid: MazeGridType;
-    pathCells: MazeCell[];
-    branchCells: string[];
-    unvisitedsBranchCells: MazeCell[];
-    rootBranchCell: MazeCell;
-    unvisitedsDirections: MazeCell[];
-    currentPaths: string[][];
-    currentCell: MazeCell;
-    steps: string[];
-}) {
+function createPathFinderModel(grid: MazeGridType) {
+    const paths = grid.flat().filter((cell) => cell.state === "path");
+    const branchCells = paths.filter((cell) => getPathNeighbors(cell).length > 2);
+    const firstBranch = branchCells[0];
+
+    const model = createModel({
+        mode: "manual" as "manual" | "auto",
+        grid,
+        pathCells: paths,
+        pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
+        /** Every cells that have more than 2 paths possible (=intersection) to go from */
+        branchCellIds: branchCells.map((cell) => cell.id),
+        unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
+        rootBranchCell: firstBranch,
+        unvisitedsDirections: getPathNeighbors(firstBranch),
+        currentPaths: [] as Array<Array<MazeCell["id"]>>,
+        currentCell: firstBranch,
+        steps: [firstBranch.id] as Array<MazeCell["id"]>,
+        /** Every closest other branchCells in each direction for each branchCells   */
+        branchNodes: new Map(
+            branchCells.map((cell) => [
+                cell.id,
+                {
+                    left: undefined as MazeCell,
+                    top: undefined as MazeCell,
+                    right: undefined as MazeCell,
+                    bottom: undefined as MazeCell,
+                },
+            ])
+        ),
+        branchNodesCost: new Map(
+            branchCells.map((cell) => [
+                cell.id,
+                {
+                    left: undefined as number,
+                    top: undefined as number,
+                    right: undefined as number,
+                    bottom: undefined as number,
+                },
+            ])
+        ),
+        branchNeighborNodes: new Map(),
+    });
+
+    return model;
+}
+
+function getNextStep(ctx: MazePathFinderContext) {
     const steps = ctx.steps.concat(ctx.currentCell.id);
     const unvisitedsNeighbors = getPathNeighbors(ctx.currentCell).filter((cell) => !steps.includes(cell.id));
     const currentCell = unvisitedsNeighbors[0];
@@ -522,7 +408,7 @@ const addBranchCellAsNodeDirectionNeighbor = (ctx: MazePathFinderContext, nextCe
     if (!firstStepId) return;
 
     // Ignore dead-ends
-    if (!ctx.branchCells.includes(nextCell?.id)) return;
+    if (!ctx.branchCellIds.includes(nextCell?.id)) return;
 
     const firstStepAfterRootBranchCell = ctx.pathCellsMap[firstStepId];
     const wentDirection = getWentDirectionFromTo(ctx.rootBranchCell, firstStepAfterRootBranchCell);
@@ -541,52 +427,4 @@ const addBranchCellAsNodeDirectionNeighbor = (ctx: MazePathFinderContext, nextCe
     }
 
     return wentDirection;
-};
-
-// TODO store cost + steps for each subPath
-
-// TODO, from a branchCell, avoid going in directions already visited in reverse
-// if we already did [3/2] --> [6/2], do not bother doing [6/2] --> [3/2]
-
-// subPath = [currentCell.id, nextCell.id].sort()
-// nodePath.push(subPath)
-
-/**
- * Returns every possible sub-path for a given A->Z path
- * -> A->B, A->B-C, ... A->B->...->X->Y->Z
- * -> B->C, B->C->D, etc...
- *
- * Ex: getAllPathsFromSteps([1, 2, 3, 4, 5])
- * =
- * [1, 2], [1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 4, 5]
- * [2, 3], [2, 3, 4], [2, 3, 4, 5]
- * [3, 4], [3, 4, 5]
- * [4, 5]
- */
-function getAllPathsFromSteps(arr: Array<MazeCell["id"]>) {
-    const paths = [];
-    let i = 0;
-    for (i; i < arr.length; i++) {
-        let y = 1;
-        let current = [arr[i]];
-        for (y; y < arr.length - i; y++) {
-            current.push(arr[i + y]);
-            paths.push([...current]);
-        }
-    }
-
-    return paths;
-}
-
-type MazeBranchDirection = Direction | "root";
-type MazeBranchStep = [MazeBranchDirection, MazeCell];
-type MazeBranchSteps = Array<MazeBranchStep>;
-
-type MazeBranchVector = {
-    id: string;
-    vector: string;
-    start: string;
-    end: string;
-    steps: string[];
-    inBetween: string[];
 };
