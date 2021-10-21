@@ -19,15 +19,15 @@ export const BruteForcerActions = ({ actor }) => {
         <>
             <HStack pointerEvents="all">
                 <Button onClick={() => send("SOLVE_STEP")} isDisabled={isDone || isAuto}>
-                    Solve Step
+                    Visit Step
                 </Button>
                 <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || isAuto}>
-                    Auto Solve
+                    Auto Visit
                 </Button>
                 <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
                     Pause solving
                 </Button>
-                <Button onClick={() => console.log(actor.state.context)}>Log ctx</Button>
+                <Button onClick={() => console.log(actor.state.context)}>Log bruteforce ctx</Button>
             </HStack>
             <DebugBruteForcer actor={actor} />
         </>

@@ -1,22 +1,32 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { useSelector } from "@xstate/react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { MazeCell } from "./mazeGeneratorMachine";
 import { MazePathFinderContext, getPathNeighbors } from "./mazePathFinderMachine";
+import { PathMergerActions } from "./PathMergerActions";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
 const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";
 
 export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () => void }) => {
+    const send = actor.send;
     const isDone = useSelector(actor, isDoneSelector);
     const isAuto = useSelector(actor, isAutoSelector);
 
-    const send = actor.send;
+    // @ts-ignore
+    const merger = useSelector(actor, (state) => state.children.merger);
+
+    useEffect(() => {
+        if (!merger) return;
+
+        const sub = merger.subscribe(() => paintMaze());
+        return sub.unsubscribe;
+    }, [merger]);
 
     return (
         <>
@@ -27,12 +37,13 @@ export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () =
                 <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || isAuto}>
                     Auto find
                 </Button>
-                <Button onClick={() => send("FINDER_PAUSE")} isDisabled={isDone || !isAuto}>
+                <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
                     Pause pathfinding
                 </Button>
-                <Button onClick={() => console.log(actor.state.context)}>Log ctx</Button>
+                <Button onClick={() => console.log(actor.state.context)}>Log find ctx</Button>
             </HStack>
             <DebugPathFinder actor={actor} paintMaze={paintMaze} />
+            {isDone && merger && <PathMergerActions actor={merger} paintMaze={paintMaze} />}
         </>
     );
 };

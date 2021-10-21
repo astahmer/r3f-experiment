@@ -16,6 +16,7 @@ import { MazeCell, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachin
 import { BruteForcerActions } from "./BruteForcerActions";
 import { MazeActions, MazeGeneratorActions } from "./MazeActions";
 import { PathFinderActions } from "./PathFinderActions";
+import { PathMergerActions } from "./PathMergerActions";
 import { useMazePanel } from "./useMazePanel";
 
 export const MazeCanvas = () => {
@@ -40,7 +41,13 @@ export const MazeCanvas = () => {
 };
 
 const MazeWorld = ({ children }) => (
-    <Canvas orthographic gl={{ antialias: false }} camera={{ rotation: [0, 0, 0], position: [0, 20, 0], zoom: 30 }}>
+    <Canvas
+        orthographic
+        gl={{ antialias: false }}
+        camera={{ rotation: [0, 0, 0], position: [0, 20, 0], zoom: 30 }}
+        mode="concurrent"
+        frameloop="demand"
+    >
         <axesHelper />
         <ambientLight />
         <pointLight position={[10, 10, 10]} />
@@ -90,7 +97,7 @@ const CanvasMazeGrid = ({
         const sub = bruteForcer.subscribe(() => {
             if (!gridRefs.current.size) return;
 
-            paintGrid(maze.flat());
+            paintMaze();
         });
         return sub.unsubscribe;
     }, [bruteForcer]);
@@ -101,12 +108,13 @@ const CanvasMazeGrid = ({
         const sub = finder.subscribe(() => {
             if (!gridRefs.current.size) return;
 
-            paintGrid(maze.flat());
+            paintMaze();
         });
         return sub.unsubscribe;
     }, [finder]);
 
     const gridRefs = useRef(new Map<MazeCell["id"], DumbBoxMesh>());
+    const paintMaze = () => paintGrid(maze.flat());
 
     return (
         <>
@@ -148,7 +156,7 @@ const CanvasMazeGrid = ({
                                 <MazeActions getMaze={() => maze} state={state as any} send={send} />
                                 {state === "done" && bruteForcer && <BruteForcerActions actor={bruteForcer} />}
                                 {state === "done" && finder && (
-                                    <PathFinderActions actor={finder} paintMaze={() => paintGrid(maze.flat())} />
+                                    <PathFinderActions actor={finder} paintMaze={paintMaze} />
                                 )}
                             </Stack>
                         </chakra.div>
