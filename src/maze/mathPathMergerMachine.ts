@@ -1,5 +1,5 @@
-import { last, pickOne } from "@pastable/core";
-import { send } from "xstate";
+import { last } from "@pastable/core";
+import { ContextFrom } from "xstate";
 import { raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
 
@@ -37,18 +37,8 @@ const createPathMergerModel = ({ stepDelayInMs, ...ctx }: CreatePathMergerMachin
         }
     });
 
-    // console.log({ currentPaths: ctx.currentPaths, baseVectors, minimalVectors });
-
-    const vectorsMap = new Map(minimalVectors.map((vec) => [vec[3], vec[2]]));
-    const vectors = [...minimalVectors];
-
-    const currentVector = vectors[0];
-    const unvisitedVectors = [
-        ...vectorsStartingById.get(currentVector[0]),
-        ...vectorsStartingById.get(currentVector[1]),
-    ];
-    const uniques = getUniquesVector(unvisitedVectors).filter((vec) => vec[3] !== currentVector[3]);
-    console.log(unvisitedVectors, uniques);
+    const vectorsMap = new Map(minimalVectors.map((vec) => [vec[3], vec]));
+    const pointsState = new Map(minimalVectors.map((vec) => [vec[3], makePointStateFromVec(vec, ctx.branchNodes)]));
 
     return createModel({
         mode: "manual" as "manual" | "auto",
@@ -58,16 +48,12 @@ const createPathMergerModel = ({ stepDelayInMs, ...ctx }: CreatePathMergerMachin
         branchNodes: ctx.branchNodes,
         currentPaths: ctx.currentPaths,
         //
-        vectors,
-        currentVector,
+        currentVector: minimalVectors[0],
         nextVector: null as MazeVector,
         lastMergedVector: null as MazeVector,
-        unvisitedVectors: uniques,
         vectorsStartingById,
-        // unvisitedIterator: unvisitedVectors.values(),
-        finalVectors: new Set(),
+        pointsState,
         //
-        minimalVectors,
         vectorsMap,
         longestPaths: [] as Array<MazeCell["id"][]>,
     });
@@ -92,13 +78,29 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         hasAllVectors: { always: { target: "#pathMerger.done", actions: "computeFullPaths" } },
                     },
                 },
-                done: { entry: (ctx) => console.log("done pathMerger", ctx) },
+                done: {
+                    entry: (ctx) => {
+                        console.log("done pathMerger", ctx);
+                        const longest = ctx.longestPaths[0];
+
+                        ctx.pathCells.forEach((cell) => {
+                            if (longest[0].includes(cell.id)) return (cell.display = "start");
+                            if (longest[longest.length - 1].includes(cell.id)) return (cell.display = "end");
+                            if (longest.includes(cell.id)) return (cell.display = "current");
+                            cell.display = "path";
+                        });
+                    },
+                },
             },
             on: {
                 TOGGLE_MODE: { actions: ["toggleMode", raise("MERGER_STEP")] },
                 MERGER_STEP: [
                     { target: "merging.willChangeNext", actions: "pickNext", cond: "hasUnvisitedsVectors" },
-                    { target: "merging.willChangeCurrent", actions: "pickCurrent", cond: "shouldChangeCurrentVector" },
+                    {
+                        target: "merging.willChangeCurrent",
+                        actions: ["removeVisitedPoints", "pickCurrent"],
+                        cond: "shouldChangeCurrentVector",
+                    },
                     { target: "merging.hasAllVectors" },
                 ],
             },
@@ -118,54 +120,85 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         cell.display = "path";
                     });
                 },
-                pickNext: model.assign({
-                    nextVector: (ctx) => {
-                        const picked = ctx.unvisitedVectors.pop();
-                        console.log("pickNext", picked);
-                        return picked;
-                    },
-                }),
-                pickCurrent: model.assign((ctx) => {
-                    ctx.finalVectors.add(ctx.currentVector);
-                    // const currentVector = ctx.finalVectors.has(ctx.lastMergedVector)
-                    //     ? pickOne(ctx.vectors.filter((vec) => !ctx.finalVectors.has(vec)))
-                    //     : ctx.lastMergedVector;
-                    const currentVector = pickOne(ctx.vectors.filter((vec) => !ctx.finalVectors.has(vec)));
-                    // const unvisitedVectors = [...ctx.vectors]; // TODO get from vectorsStartingById
-
-                    const unvisitedVectors = [
-                        ...ctx.vectorsStartingById.get(currentVector[0]),
-                        ...ctx.vectorsStartingById.get(currentVector[1]),
-                    ];
-                    const uniques = getUniquesVector(unvisitedVectors).filter(
-                        (vec) => vec[3] !== currentVector[3] && !ctx.finalVectors.has(vec)
+                pickNext: model.assign((ctx) => {
+                    const available = getAvailableVectorFor(
+                        ctx.currentVector,
+                        ctx.pointsState,
+                        ctx.vectorsStartingById
                     );
+                    const nextVector = available.vector;
+                    const state = ctx.pointsState.get(ctx.currentVector[3]);
 
-                    console.log("pickCurrent", currentVector, uniques, unvisitedVectors);
+                    // console.log("pickNext", nextVector, ctx.currentVector);
 
-                    return { ...ctx, currentVector, unvisitedVectors: uniques };
+                    // Update current vector point states
+                    if (available.fromStart) {
+                        state.startNodes = state.startNodes.filter((cell) => cell.id !== nextVector[1]);
+                    } else {
+                        state.endNodes = state.endNodes.filter((cell) => cell.id !== nextVector[1]);
+                    }
+
+                    return { ...ctx, nextVector };
+                }),
+                removeVisitedPoints: (ctx) => {
+                    // Clear fully visiteds nodes
+                    [...ctx.pointsState.entries()]
+                        .filter(([_id, state]) => !(state.startNodes.length && state.endNodes.length))
+                        .forEach(([id]) => ctx.pointsState.delete(id));
+                },
+                pickCurrent: model.assign((ctx) => {
+                    let currentVector: MazeVector;
+
+                    // Try to quickly recover using an unvisited node from the last merged
+                    const lastMergedState = ctx.pointsState.get(ctx.lastMergedVector[3]);
+                    if (lastMergedState && (lastMergedState.startNodes.length || lastMergedState.endNodes.length)) {
+                        currentVector = ctx.lastMergedVector;
+                    }
+
+                    // Or either try to find a connection (unvisited direction) to the most recent (longest) path
+                    // or finally fallback to the first available (has at least one unvisited direction in start/end nodes)
+                    if (!currentVector) {
+                        const availables = [...ctx.pointsState.entries()].filter(
+                            ([_id, state]) => state.startNodes.length || state.endNodes.length
+                        );
+                        const fromCurrent = availables.filter(
+                            ([_id, state]) => state.start === ctx.lastMergedVector[1]
+                        );
+                        const longestPathSize = Math.max(
+                            ...fromCurrent.map(([_id, state]) => state.steps).map((path) => path.length)
+                        );
+                        const longestFromCurrent = fromCurrent.find(
+                            ([_id, state]) => state.steps.length === longestPathSize
+                        );
+
+                        const entry = longestFromCurrent || availables[0];
+                        currentVector = ctx.vectorsMap.get(entry[0]);
+                    }
+
+                    // console.log("pickCurrent", currentVector);
+
+                    return { ...ctx, currentVector };
                 }),
                 merge: model.assign((ctx) => {
                     const mergedVector = mergeVector(ctx.currentVector, ctx.nextVector);
 
-                    ctx.vectorsMap.set(mergedVector[3], mergedVector[2]);
-                    addVectorToStartingByIdMap(mergedVector, ctx.vectorsStartingById);
-                    // TODO add mergedVector to vectorsStartingById with mergedVector.start/end
+                    ctx.vectorsMap.set(mergedVector[3], mergedVector);
+                    ctx.pointsState.set(mergedVector[3], makePointStateFromVec(mergedVector, ctx.branchNodes));
 
-                    console.log("merge", { mergedVector, hash: mergedVector[3], vectors: ctx.vectors });
+                    addVectorToStartingByIdMap(mergedVector, ctx.vectorsStartingById);
+
+                    // console.log("merge", { mergedVector, hash: mergedVector[3], vectors: ctx.vectors });
 
                     return {
                         ...ctx,
-                        lastMergedVector: mergedVector,
-                        vectors: ctx.vectors
-                            .filter((vec) => ![ctx.currentVector[3], ctx.nextVector[3]].includes(vec[3]))
-                            .concat([mergedVector]),
+                        lastMergedVector: ctx.currentVector,
+                        currentVector: mergedVector,
                     };
                 }),
                 computeFullPaths: model.assign((ctx) => {
                     const nodesMap = ctx.branchNodes;
 
-                    const interBranchPaths: Array<MazeCell["id"][]> = [...ctx.vectorsMap.values()];
+                    const interBranchPaths: Array<MazeCell["id"][]> = [...ctx.vectorsMap.values()].map((vec) => vec[2]);
                     const branchCellIds = [...ctx.branchNodes.keys()];
 
                     const subPathsByBranches: Record<MazeCell["id"], Array<MazeCell["id"][]>> = branchCellIds.reduce(
@@ -175,7 +208,6 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         }),
                         {}
                     );
-                    console.log(subPathsByBranches);
 
                     const fullPaths = interBranchPaths.map((steps) => {
                         if (!steps.length) return steps;
@@ -202,26 +234,11 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         const longestAppendedPath = Math.max(...possibleAppendedPaths.map((path) => path.length));
                         const appendedPath = possibleAppendedPaths.find((path) => path.length === longestAppendedPath);
 
-                        // console.log({
-                        //     finalSteps: (prependedPath ? prependedPath : []).concat(
-                        //         steps,
-                        //         appendedPath ? appendedPath : []
-                        //     ),
-                        //     steps,
-                        //     possiblePreprendedPaths,
-                        //     longestPrependedPath,
-                        //     rawPrependedPath,
-                        //     prependedPath,
-                        //     possibleAppendedPaths,
-                        //     longestAppendedPath,
-                        //     appendedPath,
-                        // });
                         return (prependedPath ? prependedPath : []).concat(steps, appendedPath ? appendedPath : []);
                     });
 
                     const longestPathSize = Math.max(...fullPaths.map((path) => path.length));
                     const longestPaths = fullPaths.filter((path) => path.length === longestPathSize);
-                    console.log(interBranchPaths);
                     console.log(longestPaths);
 
                     return { ...ctx, longestPaths };
@@ -229,13 +246,22 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
             },
             guards: {
                 isAutoRun: (ctx) => ctx.mode === "auto",
-                hasUnvisitedsVectors: (ctx) => Boolean(ctx.unvisitedVectors.length),
-                shouldChangeCurrentVector: (ctx) => ctx.vectors.some((vec) => !ctx.finalVectors.has(vec)),
-                canMerge: (ctx) => canMerge(ctx.currentVector, ctx.nextVector, ctx.vectorsMap),
+                hasUnvisitedsVectors: (ctx) =>
+                    Boolean(getAvailableVectorFor(ctx.currentVector, ctx.pointsState, ctx.vectorsStartingById).vector),
+                shouldChangeCurrentVector: (ctx) => hasAnyMergeableNodes(ctx.pointsState),
+                canMerge: (ctx) =>
+                    ctx.currentVector &&
+                    ctx.nextVector &&
+                    !ctx.vectorsMap.has(mergeVector(ctx.currentVector, ctx.nextVector)[3]),
             },
         }
     );
 };
+
+const hasMergeableNodes = (state: ReturnType<typeof makePointStateFromVec>) =>
+    state.startNodes.length || state.endNodes.length;
+const hasAnyMergeableNodes = (points: MazePathMergerContext["pointsState"]) =>
+    [...points.values()].some(hasMergeableNodes);
 
 type CreatePathMergerMachineProps = Pick<MazePathFinderContext, "pathCells" | "branchNodes" | "currentPaths"> & {
     stepDelayInMs: number;
@@ -258,9 +284,6 @@ const getOrderedSteps = (from: MazeCell["id"], to: MazeCell["id"], steps: Array<
     return [...steps].reverse();
 };
 
-// const serializeVector = (vec: MazeVector) => vec.slice(0, 2).join(",");
-const hasCommonStep = ([start, end]: MazeVector, [first, second]: MazeVector) =>
-    start === first || start === second || end === first || end === second;
 const getCommonStep = ([start, end]: MazeVector, [first, second]: MazeVector) => {
     if (start === first) return start;
     if (start === second) return start;
@@ -279,87 +302,68 @@ const mergeVector = (aaa: MazeVector, bbb: MazeVector): MazeVector => {
 
     const steps = orderedStart.concat(orderedEnd);
 
-    // console.log({
-    //     common,
-    //     start,
-    //     end,
-    //     steps,
-    //     inBetween,
-    //     oldinBetween,
-    //     aStart,
-    //     aEnd,
-    //     aSteps,
-    //     bStart,
-    //     bEnd,
-    //     bSteps,
-    // });
-
     return [start, end, steps, getVectorHash(start, end, steps)];
-};
-const isSameVector = (aaa: MazeVector, bbb: MazeVector) => aaa[3] === bbb[3];
-
-const canMerge = (current: MazeVector, next: MazeVector, vectorsMap: Map<string, string[]>) => {
-    if (!(current && next)) {
-        // console.log("incomplete", { current, next });
-        return false;
-    }
-    if (!hasCommonStep(current, next)) {
-        // console.log("has no common step", { current, next });
-        return false;
-    }
-    if (isSameVector(current, next)) {
-        // console.log("is same", { current, next });
-        return false;
-    } // cant have the same from/to/cost (TODO check steps ?)
-
-    const mergedVector = mergeVector(current, next);
-    // console.log(mergedVector, current, next);
-    if (mergedVector[0] === mergedVector[1]) {
-        // console.log("not a valid vector", { current, next, mergedVector });
-        return false;
-    } // cant merge with self
-
-    // console.log(mergedVector, current, next);
-    if (mergedVector.filter(Boolean).length !== 4) {
-        // console.log("should never happen", { current, next, mergedVector });
-        return false;
-    } // something went wrong ?
-
-    if (mergedVector[2].length !== new Set(mergedVector[2]).size) {
-        // console.log("went twice on same cell", { current, next, mergedVector });
-        return;
-    } // went twice on the same cell
-    // console.log(
-    //     {
-    //         isOk: !vectorsMap.has(mergedVectorSerialized),
-    //         mergedVector,
-    //         current,
-    //         next,
-    //         mergedVectorSerialized,
-    //     },
-    //     vectorsMap
-    // );
-    const alreadyMerged = vectorsMap.has(mergedVector[3]);
-    if (alreadyMerged) {
-        // console.log("alreadyMerged", { current, next, mergedVector, vectorsMap });
-        return false;
-    }
-
-    return true;
 };
 
 const addVectorToStartingByIdMap = (vec: MazeVector, map: Map<string, Array<MazeVector>>) => {
-    const [start, end, steps] = vec;
+    const [start, end] = vec;
     const startingBy = map.get(start) || [];
     const endingBy = map.get(end) || [];
 
     startingBy.push(vec);
     endingBy.push(vec);
-    // console.log({ start, end, vec });
 
     if (!map.has(start)) map.set(start, startingBy);
     if (!map.has(end)) map.set(end, endingBy);
 };
 
-const getUniquesVector = (vectors: MazeVector[]) =>
-    vectors.reduce((acc, item) => (acc.find((current) => current[3] === item[3]) ? acc : acc.concat([item])), []);
+export type MazePathMergerContext = ContextFrom<ReturnType<typeof createPathMergerModel>>;
+
+const getAvailableVectorFor = (
+    vec: MazeVector,
+    pointsState: MazePathMergerContext["pointsState"],
+    vectorsStartingById: MazePathMergerContext["vectorsStartingById"]
+) => {
+    const state = pointsState.get(vec[3]);
+    if (!state) return { fromStart: false, vector: null };
+
+    // Find vectors starting by vec.start with an ending step contained in vec.startNodes
+    // & with steps not intersecting with vec
+    const fromStart = state.startNodes.map((node) =>
+        vectorsStartingById
+            .get(state.start)
+            .find(
+                (startingBy) =>
+                    startingBy[1] === node.id &&
+                    !state.steps.slice(1).some((step) => startingBy[2].slice(1).includes(step))
+            )
+    );
+    if (fromStart.length) return { fromStart: true, vector: fromStart[0] };
+
+    // Find vectors starting by vec.end with an ending step contained in vec.endNodes
+    // & with steps not intersecting with vec
+    const fromEnd = state.endNodes.map((node) =>
+        vectorsStartingById
+            .get(state.end)
+            .find(
+                (endingBy) =>
+                    endingBy[1] === node.id &&
+                    !state.steps.slice(0, -1).some((step) => endingBy[2].slice(0, -1).includes(step))
+            )
+    );
+
+    return fromEnd.length ? { fromStart: false, vector: fromEnd[0] } : { fromStart: false, vector: null };
+};
+
+function makePointStateFromVec(
+    vec: MazeVector,
+    branchNodes: MazePathFinderContext["branchNodes"]
+): { steps: string[]; start: string; startNodes: MazeCell[]; end: string; endNodes: MazeCell[] } {
+    return {
+        steps: vec[2],
+        start: vec[0],
+        startNodes: Object.values(branchNodes.get(vec[0])).filter((cell) => cell && !vec[2].includes(cell.id)),
+        end: vec[1],
+        endNodes: Object.values(branchNodes.get(vec[1])).filter((cell) => cell && !vec[2].includes(cell.id)),
+    };
+}

@@ -68,6 +68,10 @@ export const createPathBruteForceMachine = ({
                         "addLongestPathFromRootAndResetCurrentPaths",
                         (ctx) => {
                             console.log("done solving", ctx);
+
+                            const longestPathSize = Math.max(...ctx.completePaths.map((path) => path.length));
+                            const longestPaths = ctx.completePaths.filter((path) => path.length === longestPathSize);
+                            console.log(longestPaths);
                             console.log((new Date().getTime() - start.getTime()) / 1000);
                         },
                     ],
