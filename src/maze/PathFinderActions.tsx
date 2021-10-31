@@ -2,24 +2,30 @@ import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { useSelector } from "@xstate/react";
 import { useEffect, useRef } from "react";
+import { ActorRefFrom } from "xstate";
 
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { MazeCell } from "./mazeGeneratorMachine";
-import { MazePathFinderContext, getPathNeighbors } from "./mazePathFinderMachine";
+import { MazePathFinderContext, createPathFinderMachine, getPathNeighbors } from "./mazePathFinderMachine";
 import { PathMergerActions } from "./PathMergerActions";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
 const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";
 
-export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () => void }) => {
-    const send = actor.send;
-    const isDone = useSelector(actor, isDoneSelector);
-    const isAuto = useSelector(actor, isAutoSelector);
+export const PathFinderActions = ({
+    finder,
+    paintMaze,
+}: {
+    finder: ActorRefFrom<ReturnType<typeof createPathFinderMachine>>;
+    paintMaze: () => void;
+}) => {
+    const send = finder.send;
+    const isDone = useSelector(finder, isDoneSelector);
+    const isAuto = useSelector(finder, isAutoSelector);
 
-    // @ts-ignore
-    const merger = useSelector(actor, (state) => state.children.merger);
+    const merger = useSelector(finder, (state) => state.children.merger);
 
     useEffect(() => {
         if (!merger) return;
@@ -40,10 +46,10 @@ export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () =
                 <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
                     Pause pathfinding
                 </Button>
-                <Button onClick={() => console.log(actor.state.context)}>Log find ctx</Button>
+                <Button onClick={() => console.log(finder.state.context)}>Log find ctx</Button>
             </HStack>
-            <DebugPathFinder actor={actor} paintMaze={paintMaze} />
-            {isDone && merger && <PathMergerActions actor={merger} paintMaze={paintMaze} />}
+            <DebugPathFinder finder={finder} paintMaze={paintMaze} />
+            {isDone && merger && <PathMergerActions merger={merger} paintMaze={paintMaze} />}
         </>
     );
 };
@@ -51,9 +57,15 @@ export const PathFinderActions = ({ actor, paintMaze }: { actor; paintMaze: () =
 const rootBranchCellSelector = (state: AnyState<MazePathFinderContext>) => state.context.rootBranchCell?.id;
 const currentCellSelector = (state: AnyState<MazePathFinderContext>) => state.context.currentCell?.id;
 
-const DebugPathFinder = ({ actor, paintMaze }: { actor; paintMaze: () => void }) => {
-    const rootBranchCell = useSelector(actor, rootBranchCellSelector);
-    const currentCell = useSelector(actor, currentCellSelector);
+const DebugPathFinder = ({
+    finder,
+    paintMaze,
+}: {
+    finder: ActorRefFrom<ReturnType<typeof createPathFinderMachine>>;
+    paintMaze: () => void;
+}) => {
+    const rootBranchCell = useSelector(finder, rootBranchCellSelector);
+    const currentCell = useSelector(finder, currentCellSelector);
 
     const gridDisplayRef = useRef<Array<[MazeCell, MazeCell["display"]]>>(null);
     const resetDisplay = () => {
@@ -62,20 +74,18 @@ const DebugPathFinder = ({ actor, paintMaze }: { actor; paintMaze: () => void })
         paintMaze();
     };
     const saveDisplay = () => {
-        const state = actor.state as AnyState<MazePathFinderContext>;
         gridDisplayRef.current = [];
-        state.context.grid.flat().forEach((cell) => gridDisplayRef.current.push([cell, cell.display]));
+        finder.state.context.grid.flat().forEach((cell) => gridDisplayRef.current.push([cell, cell.display]));
     };
 
     useKey("m", () => {
         // Clunky toggle between previous display & forced display
         if (gridDisplayRef.current) return resetDisplay();
 
-        const state = actor.state as AnyState<MazePathFinderContext>;
         saveDisplay();
 
         // Mark branchCells visually for easier debugging
-        const branchCells = state.context.pathCells.filter((cell) => getPathNeighbors(cell).length > 2);
+        const branchCells = finder.state.context.pathCells.filter((cell) => getPathNeighbors(cell).length > 2);
         branchCells.forEach((cell) => (cell.display = "mark"));
         paintMaze();
     });
@@ -85,17 +95,15 @@ const DebugPathFinder = ({ actor, paintMaze }: { actor; paintMaze: () => void })
         if (gridDisplayRef.current) return resetDisplay();
         saveDisplay();
 
-        const state = actor.state as AnyState<MazePathFinderContext>;
-
         // Mark paths that are not branchCells visually for easier debugging
-        const paths = state.context.pathCells.filter((cell) => getPathNeighbors(cell).length <= 2);
+        const paths = finder.state.context.pathCells.filter((cell) => getPathNeighbors(cell).length <= 2);
         paths.forEach((cell) => (cell.display = "blocked"));
         paintMaze();
     });
 
     return (
         <>
-            <DebugPathFinderState actor={actor} />
+            <DebugPathFinderState finder={finder} />
             <span>
                 root: {rootBranchCell} / currentCell: {currentCell}
             </span>
@@ -103,8 +111,8 @@ const DebugPathFinder = ({ actor, paintMaze }: { actor; paintMaze: () => void })
     );
 };
 
-const DebugPathFinderState = ({ actor }) => {
-    const state = useSelector(actor, (state: AnyState<MazePathFinderContext>) => printFinalStatesPath(state));
+const DebugPathFinderState = ({ finder }) => {
+    const state = useSelector(finder, (state: AnyState<MazePathFinderContext>) => printFinalStatesPath(state));
 
     return <span>{state}</span>;
 };

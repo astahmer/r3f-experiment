@@ -3,7 +3,7 @@ import "./App.css";
 import { ChakraProvider, Flex, extendTheme } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "react-query";
 
-import { AppCanvas } from "./components/AppCanvas";
+import { HtmlMazeWrapper } from "./maze/HtmlMaze";
 import { MazeCanvas } from "./maze/MazeCanvas";
 
 const queryClient = new QueryClient();
@@ -17,6 +17,7 @@ function App() {
                 <Flex direction="column" boxSize="100%">
                     {/* <AppCanvas /> */}
                     <MazeCanvas />
+                    {/* <HtmlMazeWrapper /> */}
                 </Flex>
             </ChakraProvider>
         </QueryClientProvider>

@@ -1,7 +1,7 @@
 import { Triplet } from "@react-three/cannon";
 import { BoxGeometry, Color, DoubleSide, MeshStandardMaterial } from "three";
 
-import { MazeCell } from "@/maze/mazeGeneratorMachine";
+import { MazeCell, MazePickMode } from "@/maze/mazeGeneratorMachine";
 
 export const colorByDisplayState: Record<MazeCell["display"], string> = {
     empty: "#7c7b89",
@@ -16,3 +16,12 @@ export const colorByDisplayState: Record<MazeCell["display"], string> = {
 export const material = new MeshStandardMaterial({ color: new Color(colorByDisplayState.empty), side: DoubleSide });
 export const geometry = new BoxGeometry(1, 3, 1);
 export const cameraPosition = [0, 70, 0] as Triplet;
+
+export const defaultControls = {
+    width: 50,
+    height: 50,
+    random: 5,
+    stepDelayInMs: 0,
+    mode: "both" as MazePickMode,
+    projection: 0,
+};

@@ -1,5 +1,6 @@
 import { useConst, useEventListener } from "@chakra-ui/react";
 
+// TODO atom instead of useConst + re-use event listener
 export const useKeyControls = () => {
     const pressedRef = useConst({
         up: false,

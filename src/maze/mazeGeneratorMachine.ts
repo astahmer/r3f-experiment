@@ -1,9 +1,11 @@
 import { last, pickOne } from "@pastable/utils";
-import { assign, createMachine } from "xstate";
+import { ContextFrom } from "xstate";
+import { createModel } from "xstate/lib/model";
 
 import { Direction, GridCell, getOppositeDirection, makeGrid } from "./grid";
 import { createPathBruteForceMachine } from "./mazePathBruteForceMachine";
 import { createPathFinderMachine } from "./mazePathFinderMachine";
+import { defaultControls } from "./utils";
 
 /**
  * - Let C be a list of cells, initially empty. Add one a random cell from the maze to C.
@@ -11,96 +13,87 @@ import { createPathFinderMachine } from "./mazePathFinderMachine";
  *   If there are no unvisited neighbors, remove the cell from C.
  * - Repeat step 2 until C is empty.
  */
-export const createMazeGeneratorMachine = ({
-    width,
-    height,
-    stepDelayInMs = 100,
-    randomChance = 0.5,
-    projection = 0,
-    mode = "both",
-}: {
-    width: number;
-    height: number;
-    stepDelayInMs?: number;
-    randomChance?: number;
-    projection?: number;
-    mode?: MazePickMode;
-}) => {
-    const pickWallWithMode = (mode: MazePickMode, walls: MazeCell[]) => {
-        if (mode === "both") return randomChance > Math.random() ? pickOne(walls) : last(walls);
-        if (mode === "latest") return last(walls);
-        if (mode === "random") return pickOne(walls);
-    };
-    const getInitialCtx = (width: number, height: number): MazeGeneratorContext => {
-        const { grid, list, first, notABorderCell } = getInitialGrid(width, height);
-        return {
-            grid,
-            list,
-            walls: [first],
-            mode,
-            prevCell: null as MazeCell,
-            notABorderCell,
-        };
-    };
+export const createMazeGeneratorMachine = (args: MazeGeneratorArgs) => {
+    const initialSettings: MazeSettings = { ...defaultControls, ...args };
+    const model = createMazeGeneratorModel(initialSettings);
 
-    return createMachine(
+    return model.createMachine(
         {
             initial: "incomplete",
-            context: getInitialCtx(width + 1, height + 1),
+            context: model.initialContext,
             states: {
                 incomplete: {
                     on: {
-                        STEP: [{ target: "done", actions: "step", cond: "hasVisitedAllCells" }, { actions: "step" }],
+                        STEP: [{ target: "done", actions: "step", cond: "isDone" }, { actions: "step" }],
                         RUN: { target: "running" },
                     },
                 },
                 running: {
                     after: {
-                        [stepDelayInMs]: [
-                            { target: "done", cond: "hasVisitedAllCells" },
+                        [initialSettings.stepDelayInMs]: [
+                            { target: "done", cond: "isDone" },
                             { target: "running", actions: "step" },
                         ],
                     },
                     on: { PAUSE: { target: "incomplete" } },
                 },
                 done: {
-                    entry: [() => console.log("done generating"), "openBorder"],
+                    entry: [
+                        (ctx) => {
+                            console.log("done generating", ctx);
+                        },
+                        "openBorder",
+                    ],
                     invoke: [
                         {
                             id: "bruteForcer",
                             autoForward: true,
-                            src: (ctx) => createPathBruteForceMachine({ grid: ctx.grid, stepDelayInMs }),
+                            src: (ctx) =>
+                                createPathBruteForceMachine({
+                                    grid: ctx.grid,
+                                    stepDelayInMs: ctx.settings.stepDelayInMs,
+                                }),
                         },
                         {
                             id: "finder",
                             autoForward: true,
-                            src: (ctx) => createPathFinderMachine({ grid: ctx.grid, stepDelayInMs }),
+                            src: (ctx) =>
+                                createPathFinderMachine({ grid: ctx.grid, stepDelayInMs: ctx.settings.stepDelayInMs }),
                         },
                     ],
                 },
             },
             on: {
+                UpdateSettings: { actions: "updateSettings" },
                 RESET: { target: "incomplete", actions: "reset" },
-                MODE: { actions: "setMode" },
                 IMPORT: { target: "done", actions: "import" },
             },
         },
         {
             actions: {
-                setMode: assign((ctx, e) => ({ ...ctx, mode: (e as any).value })),
-                import: assign((ctx, e) => {
-                    const states = (e as any).states as Array<MazeCell["state"][]>;
+                /** Update a key in settings with given value, also reset to initial grid context if key is width or height */
+                updateSettings: model.assign((ctx, event) => {
+                    const settings = { ...ctx.settings, [event.key]: event.value };
+                    if (!event.shouldRefreshGrid) return { ...ctx, settings };
+
+                    return { ...ctx, ...getFreshGridContext(settings.width, settings.height), settings };
+                }, "UpdateSettings") as any,
+                import: model.assign((ctx, e) => {
+                    const states = e.states;
                     if (!states?.length) return;
 
-                    const updatedCtx = getInitialCtx(states[0].length, states.length);
+                    const updatedCtx = getFreshGridContext(states[0].length, states.length);
+
+                    // Ignore borders
                     const statesList = states
-                        .slice(1, -1)
-                        .map((row) => row.slice(1, -1))
+                        // .slice(1, -1)
+                        // .map((row) => row.slice(1, -1))
                         .flat();
 
+                    // Set grid states from the imported data
                     updatedCtx.grid
-                        .slice(1, -1)
-                        .map((row) => row.slice(1, -1))
+                        // .slice(1, -1)
+                        // .map((row) => row.slice(1, -1))
                         .flat()
                         .forEach((v, i) => {
                             v.state = statesList[i];
@@ -109,177 +102,156 @@ export const createMazeGeneratorMachine = ({
                         });
 
                     return { ...ctx, ...updatedCtx };
-                }),
-                reset: assign(() => getInitialCtx(width + 1, height + 1)),
-                step: assign((ctx) => {
-                    if (ctx.prevCell?.display === "current") {
-                        ctx.prevCell.display = "path";
-                    }
+                }, "IMPORT") as any,
+                reset: model.assign((ctx) => ({
+                    ...ctx,
+                    ...getFreshGridContext(ctx.settings.width, ctx.settings.height),
+                })),
+                step: model.assign((ctx) => {
+                    const cells = [...ctx.cells];
 
-                    const walls = [...ctx.walls];
-                    if (!walls.length) {
-                        // If there are no more walls available (ran into a dead-end), start over from a random unvisited cell
-                        const nextCell = pickOne(ctx.list.filter((cell) => !cell.visited));
-                        if (!nextCell) return ctx;
+                    // Choose a cell from C
+                    const currentCell = pickCellWithMode(ctx.settings, cells);
+                    currentCell.visited = true;
+                    currentCell.display = "path";
+                    currentCell.state = "path";
 
-                        walls.push(nextCell);
-                    }
+                    const neighbors = Object.entries(currentCell.neighbors).filter(([_dir, cell]) => {
+                        if (!cell) return false;
+                        if (cell.visited) return false;
 
-                    const prevCell = pickWallWithMode(ctx.mode, walls);
-                    prevCell.visited = true;
+                        const nextNeighbors = Object.values(cell.neighbors);
+                        const hasPath = nextNeighbors.some(
+                            (next) => next && next.id !== currentCell.id && next.state === "path"
+                        );
+                        if (hasPath) return false;
 
-                    const neighbors = Object.entries(prevCell.neighbors).filter(
-                        ([dir, neighbor]) => neighbor && !neighbor.visited && ctx.notABorderCell(neighbor)
-                    ) as Array<[Direction, MazeCell]>;
+                        return true;
+                    });
 
+                    // Keep track of which cells has their displayed changed with that step
+                    const displayChanged = [currentCell];
+
+                    // If there are no unvisited neighbors, remove the cell from C.
                     if (!neighbors.length) {
-                        prevCell.display = "blocked";
-                        prevCell.state = "path";
-                        walls.splice(
-                            walls.findIndex((cell) => cell.id === prevCell.id),
+                        cells.splice(
+                            cells.findIndex((cell) => cell.id === currentCell.id),
                             1
                         );
-                        return { ...ctx, walls, prevCell };
+                        currentCell.display = "blocked";
+                        return { ...ctx, cells, currentCell, displayChanged };
                     }
 
-                    const [direction, nextCell] = pickOne(neighbors);
+                    // and carve a passage to any unvisited neighbor of that cell
+                    const [dir, nextCell] = pickOne(neighbors);
+                    const direction = dir as Direction;
                     const opposite = getOppositeDirection(direction);
+
                     neighbors
-                        .filter(([dir, cell]) => cell.id !== prevCell.id && dir !== direction && dir !== opposite)
-                        .forEach(([dir, rootNeighbor]) => {
-                            if (neighbors.length > 1) {
-                                rootNeighbor.visited = true;
-                                rootNeighbor.display = "wall";
-                                rootNeighbor.state = "wall";
-                            }
-
-                            let nesting = 1;
-                            function makeFutureNeighborAWall(cell: MazeCell, nesting: number) {
-                                const futureNeighbor = cell.neighbors[direction];
-                                // if (getRandomFloatIn(0, 1) > randomChance ? futureNeighbor : false) {
-                                if (!futureNeighbor) return;
-
-                                if (futureNeighbor.state === "path") return;
-
-                                // TODO chance
-                                // futureNeighbor.visited = true;
-                                // futureNeighbor.display = "wall";
-                                // futureNeighbor.state = "wall";
-
-                                if (nesting < projection) {
-                                    const nextNeighbors = Object.entries(futureNeighbor.neighbors).filter(
-                                        ([dir, next]) => next && dir === direction
-                                    );
-                                    nextNeighbors.forEach(([dir, next]) => {
-                                        if (neighbors.length > 1) {
-                                            next.visited = true;
-                                            next.display = "wall";
-                                            next.state = "wall";
-                                        }
-                                        makeFutureNeighborAWall(next, nesting + 1);
-                                    });
-                                }
-                            }
-
-                            projection && makeFutureNeighborAWall(rootNeighbor, nesting);
+                        .filter(([dir, cell]) => cell.id !== currentCell.id && dir !== direction && dir !== opposite)
+                        .forEach(([dir, cell]) => {
+                            cell.visited = true;
+                            cell.display = "wall";
+                            cell.state = "wall";
+                            displayChanged.push(cell);
                         });
 
+                    // adding that neighbor to C as well.
+                    cells.push(nextCell);
                     nextCell.visited = true;
                     nextCell.display = "current";
                     nextCell.state = "path";
-                    walls.push(nextCell);
+                    displayChanged.push(nextCell);
 
-                    // TODO setting / chance ?
-                    // prevCell.display = "start";
-                    // walls.splice(
-                    //     walls.findIndex((cell) => cell.id === prevCell.id),
-                    //     1
-                    // );
-
-                    return { ...ctx, walls, prevCell };
+                    return { ...ctx, cells, currentCell, displayChanged };
                 }),
-                openBorder: assign((ctx) => {
+                openBorder: model.assign((ctx) => {
                     // Clean display
                     const paths = ctx.list.filter((cell) => cell.state === "path");
                     paths.forEach((cell) => (cell.display = "path"));
 
                     return ctx;
-                    const borders = ctx.grid
-                        .flat()
-                        .filter((cell) => !cell.x || !cell.y || cell.x === width || cell.y === height);
-                    const linkedBorders = borders.filter((cell) =>
-                        Object.values(cell.neighbors)
-                            .filter(Boolean)
-                            .some((cell) => cell.state === "path")
-                    );
-
-                    const start = pickOne(linkedBorders);
-                    console.log(ctx, borders, linkedBorders, start);
-                    start.display = "start";
-                    start.state = "path";
-
-                    const unlinkedBorders = borders.filter((cell) =>
-                        Object.values(cell.neighbors)
-                            .filter(Boolean)
-                            .every((cell) => cell.state !== "path")
-                    );
-                    unlinkedBorders.forEach((cell) => {
-                        cell.display = "wall";
-                        cell.state = "wall";
-                    });
-
-                    linkedBorders
-                        .filter((cell) => cell.id !== start.id)
-                        .forEach((cell) => {
-                            cell.display = "wall";
-                            cell.state = "wall";
-                        });
-
-                    return { ...ctx };
                 }),
             },
             guards: {
-                hasVisitedAllCells: (ctx) => ctx.list.every((cell) => cell.visited),
+                isDone: (ctx) => !ctx.cells.length,
             },
         }
     );
 };
 
-export interface MazeGeneratorContext {
-    grid: MazeGridType;
-    list: MazeCell[];
-    walls: MazeCell[];
-    mode: MazePickMode;
-    prevCell: MazeCell;
-    notABorderCell: (cell: MazeCell) => boolean;
+const getFreshGridContext = (width: number, height: number) => {
+    const { grid, list, first } = getInitialGrid(width, height);
+    return { grid, list, cells: [first], currentCell: null as MazeCell };
+};
+
+const noop = () => ({});
+const createMazeGeneratorModel = (settings: MazeSettings) => {
+    const { grid, list, cells, currentCell } = getFreshGridContext(settings.width, settings.height);
+
+    return createModel(
+        { grid, list, cells, currentCell, settings, displayChanged: [cells[0]] },
+        {
+            events: {
+                RESET: noop,
+                STEP: noop,
+                PAUSE: noop,
+                RUN: noop,
+                IMPORT: (states: Array<MazeCell["state"][]>) => ({ states }),
+                UpdateSettings: (args: UpdateSettingsArgs) => args,
+            },
+        }
+    );
+};
+
+interface MazeGeneratorArgs {
+    width: number;
+    height: number;
+    stepDelayInMs?: number;
+    random?: number;
+    projection?: number;
+    mode?: MazePickMode;
 }
+type MazeSettings = Required<MazeGeneratorArgs>;
+export interface UpdateSettingsArgs {
+    key: string;
+    value: any;
+    shouldRefreshGrid?: boolean;
+}
+export type MazeGeneratorContext = ContextFrom<ReturnType<typeof createMazeGeneratorModel>>;
 
 export type MazeGridType = Array<MazeCell[]>;
 export type MazePickMode = "latest" | "random" | "both";
 
 export interface MazeCell extends GridCell {
     visited: boolean;
+    direction: Direction;
     state: "wall" | "path" | "start" | "end";
     display: "empty" | "wall" | "path" | "blocked" | "start" | "current" | "end" | "mark";
-    neighbors: { left?: MazeCell; top?: MazeCell; right?: MazeCell; bottom?: MazeCell };
+    neighbors: Record<Direction, MazeCell | undefined>;
 }
 
 export const getMazeGrid = (width: number, height: number) =>
-    makeGrid(width, height, () => ({ display: "empty", state: "wall", visited: false })) as MazeGridType;
-
-const makeNotABorderCellFilter = (width: number, height: number) => (cell: MazeCell) =>
-    cell.x > 0 && cell.x < width - 1 && cell.y > 0 && cell.y < height - 1;
+    makeGrid(width, height, () => ({
+        display: "empty",
+        state: "wall",
+        visited: false,
+        direction: null,
+    })) as MazeGridType;
 
 const getInitialGrid = (width: number, height: number) => {
     const grid = getMazeGrid(width, height);
-    const flat = grid.flat();
-    const notABorderCell = makeNotABorderCellFilter(width, height);
-
-    const list = flat.filter(notABorderCell);
+    const list = grid.flat();
     const first = pickOne(list);
 
     first.display = "path";
     first.visited = true;
 
-    return { grid, list, first, notABorderCell };
+    return { grid, list, first };
+};
+
+const pickCellWithMode = (settings: MazeSettings, cells: MazeCell[]) => {
+    if (settings.mode === "both") return settings.random / 100 > Math.random() ? pickOne(cells) : last(cells);
+    if (settings.mode === "latest") return last(cells);
+    if (settings.mode === "random") return pickOne(cells);
 };

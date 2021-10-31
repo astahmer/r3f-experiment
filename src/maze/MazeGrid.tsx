@@ -1,8 +1,9 @@
 import { Flex } from "@chakra-ui/layout";
-import { FlexProps } from "@chakra-ui/react";
+import { FlexProps, useDisclosure } from "@chakra-ui/react";
 import { WithChildren } from "@pastable/core";
-import { memo } from "react";
+import { memo, useRef } from "react";
 
+import { useKey } from "@/functions/useKey";
 import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
 
 export const MazeGrid = ({ maze }: { maze: MazeGridType }) => {
@@ -10,14 +11,14 @@ export const MazeGrid = ({ maze }: { maze: MazeGridType }) => {
         <Flex maxW="80%" maxH="80%" flexDirection="column" pointerEvents="all">
             <Flex ml="30px">
                 {maze[0].map((_, i) => (
-                    <Cell key={i} display="path" border="none">
+                    <Cell key={i} display="path" backgroundColor="white" border="none">
                         x{i}
                     </Cell>
                 ))}
             </Flex>
             {maze.map((rows, y) => (
                 <Flex key={y}>
-                    <Cell display="path" border="none">
+                    <Cell display="path" backgroundColor="white" border="none">
                         y{y}
                     </Cell>
                     {rows.map((cell, x) => (
@@ -37,26 +38,35 @@ export const Cell = ({
     children,
     display,
     ...props
-}: Pick<MazeCell, "display"> & Partial<WithChildren> & Omit<FlexProps, "display">) => (
-    <Flex
-        boxSize="30px"
-        minWidth="30px"
-        backgroundColor={colorByDisplayState[display]}
-        border="1px solid rgb(250 128 114 / 20%)"
-        color="cadetblue"
-        justifyContent="center"
-        alignItems="center"
-        userSelect="none"
-        {...props}
-    >
-        {children}
-    </Flex>
-);
+}: Pick<MazeCell, "display"> & Partial<WithChildren> & Omit<FlexProps, "display">) => {
+    const ref = useRef<HTMLDivElement>();
+
+    const toggle = useDisclosure();
+    useKey("u", toggle.onToggle);
+
+    return (
+        <Flex
+            boxSize="10px"
+            minWidth="10px"
+            backgroundColor={colorByDisplayState[display]}
+            border="1px solid rgb(250 128 114 / 25%)"
+            color="cadetblue"
+            justifyContent="center"
+            alignItems="center"
+            userSelect="none"
+            ref={ref}
+            onClick={() => (ref.current.style.background = "red")}
+            {...props}
+        >
+            {toggle.isOpen && children}
+        </Flex>
+    );
+};
 
 const colorByDisplayState: Record<MazeCell["display"], string> = {
     empty: "dimgrey",
     wall: "burlywood",
-    path: "white",
+    path: "orange",
     blocked: "cadetblue",
     start: "green",
     current: "yellow",

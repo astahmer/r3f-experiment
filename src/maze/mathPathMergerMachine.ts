@@ -269,20 +269,9 @@ type CreatePathMergerMachineProps = Pick<MazePathFinderContext, "pathCells" | "b
 type MazeVector = [start: MazeCell["id"], end: MazeCell["id"], steps: Array<MazeCell["id"]>, hash: string];
 
 const getVectorHash = (from: MazeCell["id"], to: MazeCell["id"], steps: Array<MazeCell["id"]>) =>
-    getOrderedSteps(from, to, steps).join(",");
-
-const getOrderedSteps = (from: MazeCell["id"], to: MazeCell["id"], steps: Array<MazeCell["id"]>) => {
-    const [fromX, fromY] = from.split("/");
-    const [toX, toY] = to.split("/");
-
-    if (fromX === toX) {
-        if (fromY < toY) return steps;
-        return [...steps].reverse();
-    }
-
-    if (fromX < toX) return steps;
-    return [...steps].reverse();
-};
+    // [from, to].join(":") + "---" + steps.slice(1, -1).sort().join(":"); // A vector can be used multiple times as long as it never use the same in between steps
+    // [from, to].join(":") + "---" + steps.length; // A vector can be used multiple times as long as the weight is different to do from/to
+    [from, to].sort().join(":"); // A vector can only be used once
 
 const getCommonStep = ([start, end]: MazeVector, [first, second]: MazeVector) => {
     if (start === first) return start;

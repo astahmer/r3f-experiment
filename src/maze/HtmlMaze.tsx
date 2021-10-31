@@ -1,23 +1,24 @@
 import { Stack } from "@chakra-ui/layout";
-import { Portal } from "@chakra-ui/react";
+import { chakra } from "@chakra-ui/react";
 import { useMachine } from "@xstate/react";
-import { LevaPanel } from "leva";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useKey } from "@/functions/useKey";
 import { MazeGridType, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
 import { BruteForcerActions } from "./BruteForcerActions";
 import { MazeActions, MazeGeneratorActions } from "./MazeActions";
 import { MazeGrid } from "./MazeGrid";
 import { useMazePanel } from "./useMazePanel";
+import { defaultControls } from "./utils";
 
-// TODO check that it still works
+const { mode, projection, width, height, random } = defaultControls;
 export const HtmlMaze = () => {
     // console.log(printFinalStatesPath(state), maze);
 
-    const { store, mode, projection, width, height, random } = useMazePanel((value) => send("MODE", { value }));
+    useMazePanel((update) => send("UpdateSettings", update));
     const [state, send] = useMachine(() =>
-        createMazeGeneratorMachine({ width, height, stepDelayInMs: 0, randomChance: random, projection, mode })
+        createMazeGeneratorMachine({ width, height, stepDelayInMs: 0, random, projection, mode })
     );
 
     const maze = state.context.grid;
@@ -38,9 +39,33 @@ export const HtmlMaze = () => {
                     <BruteForcerActions actor={state.children.bruteForcer} />
                 )}
             </Stack>
-            <Portal>
+            {/* <Portal>
                 <LevaPanel store={store} />
-            </Portal>
+            </Portal> */}
         </>
+    );
+};
+
+export const HtmlMazeWrapper = () => {
+    const [key, setKey] = useState(0);
+
+    // restarts the machine so it doesn't remain like before the HMR update
+    useKey("r", () => {
+        setKey((key) => key + 1);
+        console.clear();
+    });
+
+    return (
+        <chakra.div
+            pos="absolute"
+            boxSize="100%"
+            inset="0"
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            pointerEvents="none"
+        >
+            <HtmlMaze key={key} />
+        </chakra.div>
     );
 };

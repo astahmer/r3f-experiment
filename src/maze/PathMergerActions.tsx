@@ -9,12 +9,11 @@ import { MazePathFinderContext } from "./mazePathFinderMachine";
 const isDoneSelector = (state: AnyState) => state.matches("done");
 const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";
 
-export const PathMergerActions = ({ actor, paintMaze }: { actor; paintMaze: () => void }) => {
-    const send = actor.send;
+export const PathMergerActions = ({ merger, paintMaze }: { merger; paintMaze: () => void }) => {
+    const send = merger.send;
 
-    const isDone = useSelector(actor, isDoneSelector);
-    const isAuto = useSelector(actor, isAutoSelector);
-    console.log(actor.state.context);
+    const isDone = useSelector(merger, isDoneSelector);
+    const isAuto = useSelector(merger, isAutoSelector);
 
     return (
         <>
@@ -28,7 +27,7 @@ export const PathMergerActions = ({ actor, paintMaze }: { actor; paintMaze: () =
                 <Button onClick={() => send("TOGGLE_MODE")} isDisabled={isDone || !isAuto}>
                     Pause pathmerging
                 </Button>
-                <Button onClick={() => console.log(actor.state.context)}>Log merge ctx</Button>
+                <Button onClick={() => console.log(merger.state.context)}>Log merge ctx</Button>
             </HStack>
         </>
     );

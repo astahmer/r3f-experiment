@@ -1,29 +1,49 @@
 import { useControls, useCreateStore } from "leva";
 
-import { MazePickMode } from "@/maze/mazeGeneratorMachine";
+import { MazePickMode, UpdateSettingsArgs } from "@/maze/mazeGeneratorMachine";
 
-const defaults = { width: 10, height: 10, random: 5, stepDelayInMs: 0 };
+import { defaultControls } from "./utils";
 
-export const useMazePanel = (onModeChange?: (value: MazePickMode) => void) => {
-    const store = useCreateStore();
-    const controls = useControls(
+export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
+    // const store = useCreateStore();
+    const makeOnChange = (key: string, shouldRefreshGrid?: boolean) => (value: any) =>
+        onChange({ key, value, shouldRefreshGrid });
+
+    return useControls(
         "maze",
         {
             mode: {
                 options: ["both", "latest", "random"] as Array<MazePickMode>,
-                value: "both" as MazePickMode,
-                transient: false,
-                onChange: onModeChange,
+                value: defaultControls.mode,
+                onChange: makeOnChange("mode"),
             },
-            projection: { value: 0, min: 0, max: 5, step: 1 },
-            width: { value: defaults.width, min: 4, max: 40, step: 2 },
-            height: { value: defaults.height, min: 4, max: 40, step: 2 },
-            random: { value: defaults.random, min: 1, max: 100, step: 5 },
-            stepDelayInMs: { value: defaults.stepDelayInMs, min: 0, max: 1000, step: 100 },
+            projection: {
+                value: defaultControls.projection,
+                min: 0,
+                max: 5,
+                step: 1,
+                onChange: makeOnChange("projection"),
+            },
+            width: { value: defaultControls.width, min: 4, max: 200, step: 2, onChange: makeOnChange("width", true) },
+            height: {
+                value: defaultControls.height,
+                min: 4,
+                max: 200,
+                step: 2,
+                onChange: makeOnChange("height", true),
+            },
+            random: { value: defaultControls.random, min: 1, max: 100, step: 5, onChange: makeOnChange("random") },
+            stepDelayInMs: {
+                value: defaultControls.stepDelayInMs,
+                min: 0,
+                max: 1000,
+                step: 100,
+                onChange: makeOnChange("stepDelayInMs"),
+            },
             // state: { value: printFinalStatesPath(state), disabled: true },
-        },
-        { store: undefined }
+        }
+        // { store }
     );
 
-    return { store, ...controls };
+    // return { store };
 };
