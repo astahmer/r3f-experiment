@@ -1,6 +1,8 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
+import { useClipboard } from "@chakra-ui/react";
 import { chunk, reverse } from "@pastable/core";
+import { useEffect, useState } from "react";
 import { AnyInterpreter } from "xstate";
 
 import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
@@ -37,11 +39,12 @@ export const MazeActions = ({
     state: "incomplete" | "running" | "done";
     send: AnyInterpreter["send"];
 }) => {
+    const [serialized, setSeriliazed] = useState(null);
+    const { hasCopied, onCopy } = useClipboard(serialized);
+
     const exportMaze = () => {
         const serialized = serializeMaze(getMaze());
-        const rebuilt = rebuildMaze(serialized);
-        prompt("Serialized maze", serialized);
-        console.log(serialized, rebuilt);
+        setSeriliazed(serialized);
     };
     const importMaze = () => {
         const serialized = prompt("Paste the maze grid here");
@@ -54,6 +57,10 @@ export const MazeActions = ({
             console.log(error);
         }
     };
+
+    useEffect(() => {
+        if (serialized) onCopy();
+    }, [serialized]);
     // console.log(serializeMaze(getMaze()));
 
     return (
@@ -62,7 +69,7 @@ export const MazeActions = ({
                 Import
             </Button>
             <Button onClick={exportMaze} isDisabled={state !== "done"}>
-                Export
+                {hasCopied ? "Copied !" : "Export"}
             </Button>
             {/* <Button onClick={() => console.log(state.context)}>Log ctx</Button> */}
         </HStack>
