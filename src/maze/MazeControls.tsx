@@ -19,6 +19,7 @@ export function MazeControls({
     bruteForcer,
     finder,
     repaintMaze,
+    showUI,
 }: {
     state: string;
     send: AnyInterpreter["send"];
@@ -26,12 +27,13 @@ export function MazeControls({
     bruteForcer: ActorRefFrom<ReturnType<typeof createPathBruteForceMachine>>;
     finder: ActorRefFrom<ReturnType<typeof createPathFinderMachine>>;
     repaintMaze: () => void;
+    showUI?: boolean;
 }) {
     return (
         <Html prepend>
             <ChakraProvider>
                 <Portal>
-                    <chakra.div pos="absolute" bottom="0" left="0" userSelect="none">
+                    <chakra.div pos="absolute" bottom="0" left="0" userSelect="none" display={showUI ? "" : "none"}>
                         <Stack pointerEvents="none">
                             <MazeGeneratorActions state={state as any} send={send} />
                             <MazeActions getMaze={() => maze} state={state as any} send={send} />

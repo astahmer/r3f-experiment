@@ -1,5 +1,6 @@
 import { Position } from "@react-three/drei/helpers/Position";
 import { useInterpret, useSelector } from "@xstate/react";
+import { useControls } from "leva";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { printFinalStatesPath } from "@/functions/xstate-utils";
@@ -76,6 +77,8 @@ export function CanvasMazeGrid(initialSettings: typeof defaultControls) {
     const gridRefs = useRef(new Map<MazeCell["id"], Position>());
     const repaintMaze = () => paintWholeGrid(maze.flat());
 
+    const { showUI } = useControls({ showUI: true });
+
     return (
         <>
             {/* {maze && (
@@ -95,7 +98,7 @@ export function CanvasMazeGrid(initialSettings: typeof defaultControls) {
                     <CellsList maze={maze} registerMesh={(cell, node) => gridRefs.current.set(cell.id, node)} />
                 </group>
             )}
-            {<MazeControls {...({ state, send, maze, bruteForcer, finder, repaintMaze } as any)} />}
+            <MazeControls {...({ state, send, maze, bruteForcer, finder, repaintMaze, showUI } as any)} />
         </>
     );
 }
