@@ -3,12 +3,11 @@ import { Physics } from "@react-three/cannon";
 import { Canvas } from "@react-three/fiber";
 import { useAtomValue } from "jotai/utils";
 import { Leva } from "leva";
-import { Suspense, useState } from "react";
+import { Suspense } from "react";
 
 import { playerFinalStatesPathAtom } from "@/functions/store";
-import { useKey } from "@/functions/useKey";
 
-import { HtmlMaze } from "../maze/HtmlMaze";
+import { HtmlMazeWrapper } from "../maze/HtmlMaze";
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
 import { HUDCompass } from "./Compass";
@@ -16,17 +15,10 @@ import { GravityProvider, useControllableGravity } from "./Gravity";
 
 export const AppCanvas = () => {
     const cameraPos = useAtomValue(cameraPosAtom);
-    const [key, setKey] = useState(0);
-
-    // restarts the machine so it doesn't remain like before the HMR update
-    useKey("r", () => {
-        setKey((key) => key + 1);
-        console.clear();
-    });
 
     return (
         <>
-            <Canvas gl={{ antialias: false }} camera={{ position: cameraPos }}>
+            <Canvas camera={{ position: cameraPos }}>
                 <axesHelper />
                 <CameraControls />
                 <ambientLight />
@@ -40,17 +32,7 @@ export const AppCanvas = () => {
                 <Leva fill hideCopyButton />
                 <PlayerFinalStatePaths />
             </chakra.div>
-            <chakra.div
-                pos="absolute"
-                boxSize="100%"
-                inset="0"
-                display="flex"
-                justifyContent="center"
-                alignItems="center"
-                pointerEvents="none"
-            >
-                <HtmlMaze key={key} />
-            </chakra.div>
+            <HtmlMazeWrapper />
         </>
     );
 };
