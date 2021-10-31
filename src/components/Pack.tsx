@@ -1,6 +1,6 @@
 import { useConst } from "@chakra-ui/hooks";
 import { WithChildren } from "@pastable/react";
-import { Triplet, useBox } from "@react-three/cannon";
+import { context as PhysicsContext, Triplet, useBox } from "@react-three/cannon";
 import { createContext, useContext } from "react";
 import { Vector3 } from "three";
 
@@ -10,17 +10,28 @@ import { CommonObject } from "@/types";
 const PackContext = createContext(null);
 export const usePackContext = () => useContext(PackContext);
 export const Pack = ({ children, position, ...props }: WithChildren & Pick<CommonObject, "position" | "rotation">) => {
+    const physics = useContext(PhysicsContext);
     const ctx = usePackContext();
-    const relativePosition = useConst(new Vector3(...(ctx?.position || emptyV)));
+    const relativePositionVec = useConst(new Vector3(...(ctx?.position || emptyV)));
 
+    const hasPhysics = Boolean(Object.keys(physics).length);
+
+    if (!hasPhysics)
+        return (
+            <group position={position} {...props}>
+                {children}
+            </group>
+        );
+
+    const relativePosition = relativePositionVec
+        .clone()
+        .add(new Vector3(...position))
+        .toArray();
     return (
         <PackContext.Provider
             value={{
                 ...props,
-                position: relativePosition
-                    .clone()
-                    .add(new Vector3(...position))
-                    .toArray(),
+                position: relativePosition,
             }}
         >
             {children}
