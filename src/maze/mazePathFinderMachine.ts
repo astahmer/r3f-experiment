@@ -1,5 +1,5 @@
 import { ContextFrom } from "xstate";
-import { raise, send } from "xstate/lib/actions";
+import { raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
 
 import { getWentDirectionFromTo } from "./grid";
@@ -48,7 +48,93 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     },
                 },
                 done: {
-                    entry: (ctx) => console.log("done pathfinder", ctx),
+                    entry: (ctx) => {
+                        console.log("done pathfinder", ctx);
+                        return;
+
+                        const paths: Array<MazeCell["id"]>[] = [];
+                        let unvisiteds = [...ctx.branchCellIds];
+
+                        let currentCell: MazeCell["id"] = unvisiteds.pop();
+                        let currentPath: Array<MazeCell["id"]> = [currentCell];
+                        let currentSteps = [];
+                        // console.log(unvisiteds);
+
+                        let safe = 0;
+
+                        while (unvisiteds.length) {
+                            if (++safe > 50) break;
+                            // currentCell = unvisiteds.pop();
+                            // currentPath.push(currentCell);
+                            console.log({ currentCell, currentPath });
+                            // console.log(currentCell, currentPath);
+
+                            const neighbors = Object.values(ctx.branchNodes.get(currentCell)).filter(
+                                (cell) => cell && !currentPath.includes(cell.id) && unvisiteds.includes(cell.id)
+                            );
+                            // console.log(neighbors);
+
+                            if (neighbors.length) {
+                                const cell = neighbors[0];
+                                const vector = [currentCell, cell.id] as [string, string];
+                                const steps =
+                                    ctx.currentPaths.find(
+                                        (path) => currentCell === path[0] && cell.id === path[path.length - 1]
+                                    ) || vector;
+                                const inBetween = steps.slice(1);
+                                const futureSteps = currentPath.concat(inBetween);
+                                // console.log({
+                                //     steps,
+                                //     inBetween,
+                                //     futureSteps,
+                                //     currentPath,
+                                //     size: new Set(futureSteps).size,
+                                //     length: futureSteps.length,
+                                // });
+
+                                // Never go twice on same cell
+                                if (new Set(futureSteps).size === futureSteps.length) {
+                                    currentSteps = futureSteps;
+                                    currentPath.push(cell.id);
+                                    currentCell = cell.id;
+                                    unvisiteds = unvisiteds.filter((cellId) => !currentPath.includes(cellId));
+                                }
+                            } else {
+                                paths.push([...currentPath]);
+                                currentPath = [];
+                                currentSteps = [];
+                                currentCell = unvisiteds.pop();
+                            }
+                        }
+
+                        paths.push([...currentPath]);
+
+                        // const pathEdges = paths.map((steps) => [
+                        //     ctx.branchNodes.get(steps[0]),
+                        //     ctx.branchNodes.get(last(steps)),
+                        // ]);
+                        // const baseVectors = ctx.branchCellIds
+                        // .map((branchId) =>
+                        //     Object.entries(ctx.branchNodes.get(branchId))
+                        //         .filter(([_dir, cell]) => cell)
+                        //         .map(([_dir, cell]) => {
+                        //             const vector = [branchId, cell.id] as [string, string];
+                        //             const steps =
+                        //                 ctx.currentPaths.find((path) => branchId === path[0] && cell.id === path[path.length - 1]) ||
+                        //                 vector;
+
+                        //             const hashed = getVectorHash(branchId, cell.id, steps);
+
+                        //             return [branchId, cell.id, steps, hashed];
+                        //         })
+                        // )
+                        // .flat() as Array<MazeVector>;
+
+                        console.log(
+                            paths
+                            // pathEdges.flat().filter(())
+                        );
+                    },
                     invoke: {
                         id: "merger",
                         autoForward: true,
@@ -62,7 +148,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                 toggleMode: model.assign({ mode: (ctx) => (ctx.mode === "auto" ? "manual" : "auto") }),
                 drawGrid: (ctx) => {
                     ctx.pathCells.forEach((cell) => {
-                        if (ctx.steps.includes(cell.id)) cell.display = "blocked";
+                        if (ctx.steps.includes(cell.id)) cell.display = "mark";
                         else cell.display = "path";
                     });
 
