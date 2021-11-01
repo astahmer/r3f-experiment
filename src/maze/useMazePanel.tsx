@@ -1,7 +1,7 @@
 import { useUpdateAtom } from "jotai/utils";
 import { useControls, useCreateStore } from "leva";
 
-import { MazePickMode, UpdateSettingsArgs } from "@/maze/mazeGeneratorMachine";
+import { MazeModes, UpdateSettingsArgs } from "@/maze/mazeGeneratorMachine";
 
 import { defaultSettings, settingsAtom } from "./utils";
 
@@ -17,8 +17,8 @@ export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
         "maze",
         {
             mode: {
-                options: ["both", "latest", "random"] as Array<MazePickMode>,
-                value: defaultControls.mode,
+                options: MazeModes,
+                value: defaultSettings.mode,
                 onChange: makeOnChange("mode"),
             },
             width: { value: defaultSettings.width, min: 4, max: 200, step: 2, onChange: makeOnChange("width", true) },

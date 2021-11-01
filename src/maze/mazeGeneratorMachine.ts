@@ -1,4 +1,4 @@
-import { last, pickOne } from "@pastable/utils";
+import { first, last, pickOne, pickOneBut } from "@pastable/utils";
 import { ContextFrom } from "xstate";
 import { createModel } from "xstate/lib/model";
 
@@ -209,8 +209,9 @@ interface MazeGeneratorArgs {
     height: number;
     stepDelayInMs?: number;
     random?: number;
-    projection?: number;
     mode?: MazePickMode;
+    minStepsBeforeBranching?: number;
+    withLoops?: boolean;
 }
 export type MazeSettings = Required<MazeGeneratorArgs>;
 export interface UpdateSettingsArgs {
@@ -221,7 +222,8 @@ export interface UpdateSettingsArgs {
 export type MazeGeneratorContext = ContextFrom<ReturnType<typeof createMazeGeneratorModel>>;
 
 export type MazeGridType = Array<MazeCell[]>;
-export type MazePickMode = "latest" | "random" | "both";
+export type MazePickMode = "newest" | "oldest" | "middle" | "random" | "both" | "mixed";
+export const MazeModes = ["newest", "oldest", "middle", "random", "both", "mixed"] as Array<MazePickMode>;
 
 export interface MazeCell extends GridCell {
     visited: boolean;
@@ -251,7 +253,16 @@ const getInitialGrid = (width: number, height: number) => {
 };
 
 const pickCellWithMode = (settings: MazeSettings, cells: MazeCell[]) => {
-    if (settings.mode === "both") return settings.random / 100 > Math.random() ? pickOne(cells) : last(cells);
-    if (settings.mode === "latest") return last(cells);
-    if (settings.mode === "random") return pickOne(cells);
+    const mode = settings.mode === "mixed" ? pickOneBut(MazeModes, ["mixed"]) : settings.mode;
+
+    if (mode === "both")
+        return settings.random / 100 > Math.random()
+            ? pickOne(cells)
+            : Math.random() > 0.5
+            ? first(cells)
+            : last(cells);
+    if (mode === "newest") return last(cells);
+    if (mode === "middle") return cells[Math.floor(cells.length / 2)];
+    if (mode === "oldest") return first(cells);
+    if (mode === "random") return pickOne(cells);
 };

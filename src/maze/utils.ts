@@ -24,6 +24,8 @@ export const defaultSettings: MazeSettings = {
     random: 5,
     stepDelayInMs: 0,
     mode: "both" as MazePickMode,
-    projection: 0,
+    // TODO
+    minStepsBeforeBranching: 0,
+    withLoops: false,
 };
 export const settingsAtom = atomWithStorage("r3f/settings", defaultSettings);
