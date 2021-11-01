@@ -5,7 +5,7 @@ import { createModel } from "xstate/lib/model";
 import { Direction, GridCell, getOppositeDirection, makeGrid } from "./grid";
 import { createPathBruteForceMachine } from "./mazePathBruteForceMachine";
 import { createPathFinderMachine } from "./mazePathFinderMachine";
-import { defaultControls } from "./utils";
+import { defaultSettings } from "./utils";
 
 /**
  * - Let C be a list of cells, initially empty. Add one a random cell from the maze to C.
@@ -14,7 +14,7 @@ import { defaultControls } from "./utils";
  * - Repeat step 2 until C is empty.
  */
 export const createMazeGeneratorMachine = (args: MazeGeneratorArgs) => {
-    const initialSettings: MazeSettings = { ...defaultControls, ...args };
+    const initialSettings: MazeSettings = { ...defaultSettings, ...args };
     const model = createMazeGeneratorModel(initialSettings);
 
     return model.createMachine(
@@ -212,7 +212,7 @@ interface MazeGeneratorArgs {
     projection?: number;
     mode?: MazePickMode;
 }
-type MazeSettings = Required<MazeGeneratorArgs>;
+export type MazeSettings = Required<MazeGeneratorArgs>;
 export interface UpdateSettingsArgs {
     key: string;
     value: any;

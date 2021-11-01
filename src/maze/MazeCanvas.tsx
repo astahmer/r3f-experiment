@@ -6,7 +6,8 @@ import { useKey } from "@/functions/useKey";
 
 import { Zoom } from "../components/Zoom";
 import { CanvasMazeGrid } from "./CanvasMazeGrid";
-import { cameraPosition, defaultControls } from "./utils";
+import { useAtomSyncCallback } from "./useAtomSyncCallback";
+import { cameraPosition, settingsAtom } from "./utils";
 
 export const MazeCanvas = () => {
     const [key, setKey] = useState(0);
@@ -17,9 +18,11 @@ export const MazeCanvas = () => {
         console.clear();
     });
 
+    const getSettings = useAtomSyncCallback((get) => get(settingsAtom));
+
     return (
         <MazeCanvasRenderer>
-            <CanvasMazeGrid key={key} {...defaultControls} />
+            <CanvasMazeGrid key={key} {...getSettings()} />
         </MazeCanvasRenderer>
     );
 };

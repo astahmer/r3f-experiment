@@ -1,7 +1,8 @@
 import { Triplet } from "@react-three/cannon";
+import { atomWithStorage } from "jotai/utils";
 import { BoxGeometry, Color, DoubleSide, MeshStandardMaterial } from "three";
 
-import { MazeCell, MazePickMode } from "@/maze/mazeGeneratorMachine";
+import { MazeCell, MazePickMode, MazeSettings } from "@/maze/mazeGeneratorMachine";
 
 export const colorByDisplayState: Record<MazeCell["display"], string> = {
     empty: "#7c7b89",
@@ -17,7 +18,7 @@ export const material = new MeshStandardMaterial({ color: new Color(colorByDispl
 export const geometry = new BoxGeometry(1, 3, 1);
 export const cameraPosition = [0, 70, 0] as Triplet;
 
-export const defaultControls = {
+export const defaultSettings: MazeSettings = {
     width: 50,
     height: 50,
     random: 5,
@@ -25,3 +26,4 @@ export const defaultControls = {
     mode: "both" as MazePickMode,
     projection: 0,
 };
+export const settingsAtom = atomWithStorage("r3f/settings", defaultSettings);

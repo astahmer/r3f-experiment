@@ -4,13 +4,13 @@ import { useControls } from "leva";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { printFinalStatesPath } from "@/functions/xstate-utils";
-import { MazeCell, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
+import { MazeCell, MazeSettings, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
 import { CellsList } from "./CellsList";
 import { MazeControls } from "./MazeControls";
-import { colorByDisplayState, defaultControls } from "./utils";
+import { colorByDisplayState } from "./utils";
 
-export function CanvasMazeGrid(initialSettings: typeof defaultControls) {
+export function CanvasMazeGrid(initialSettings: MazeSettings) {
     const [settings, setSettings] = useState(initialSettings);
 
     const updateCellDisplay = (cell: MazeCell) => {

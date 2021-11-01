@@ -1,6 +1,7 @@
 import { Stack } from "@chakra-ui/layout";
 import { chakra } from "@chakra-ui/react";
 import { useMachine } from "@xstate/react";
+import { useAtomValue } from "jotai/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useKey } from "@/functions/useKey";
@@ -9,17 +10,16 @@ import { MazeGridType, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMa
 import { BruteForcerActions } from "./BruteForcerActions";
 import { MazeActions, MazeGeneratorActions } from "./MazeActions";
 import { MazeGrid } from "./MazeGrid";
+import { useAtomSyncCallback } from "./useAtomSyncCallback";
 import { useMazePanel } from "./useMazePanel";
-import { defaultControls } from "./utils";
+import { settingsAtom } from "./utils";
 
-const { mode, projection, width, height, random } = defaultControls;
 export const HtmlMaze = () => {
     // console.log(printFinalStatesPath(state), maze);
 
     useMazePanel((update) => send("UpdateSettings", update));
-    const [state, send] = useMachine(() =>
-        createMazeGeneratorMachine({ width, height, stepDelayInMs: 0, random, projection, mode })
-    );
+    const getSettings = useAtomSyncCallback((get) => get(settingsAtom));
+    const [state, send] = useMachine(() => createMazeGeneratorMachine(getSettings()));
 
     const maze = state.context.grid;
     const mazeRef = useRef<MazeGridType>(null!);
