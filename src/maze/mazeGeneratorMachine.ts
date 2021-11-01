@@ -228,19 +228,13 @@ export const MazeModes = ["newest", "oldest", "middle", "random", "both", "mixed
 
 export interface MazeCell extends GridCell {
     visited: boolean;
-    direction: Direction;
     state: "wall" | "path" | "start" | "end";
     display: "empty" | "wall" | "path" | "blocked" | "start" | "current" | "end" | "mark";
     neighbors: Record<Direction, MazeCell | undefined>;
 }
 
 export const getMazeGrid = (width: number, height: number) =>
-    makeGrid(width, height, () => ({
-        display: "empty",
-        state: "wall",
-        visited: false,
-        direction: null,
-    })) as MazeGridType;
+    makeGrid(width, height, () => ({ display: "empty", state: "wall", visited: false })) as MazeGridType;
 
 const getInitialGrid = (width: number, height: number) => {
     const grid = getMazeGrid(width, height);

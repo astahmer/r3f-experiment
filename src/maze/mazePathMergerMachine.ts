@@ -268,6 +268,7 @@ type CreatePathMergerMachineProps = Pick<MazePathFinderContext, "pathCells" | "b
 };
 type MazeVector = [start: MazeCell["id"], end: MazeCell["id"], steps: Array<MazeCell["id"]>, hash: string];
 
+// TODO leva controls
 const getVectorHash = (from: MazeCell["id"], to: MazeCell["id"], steps: Array<MazeCell["id"]>) =>
     // [from, to].join(":") + "---" + steps.slice(1, -1).sort().join(":"); // A vector can be used multiple times as long as it never use the same in between steps
     // [from, to].join(":") + "---" + steps.length; // A vector can be used multiple times as long as the weight is different to do from/to
