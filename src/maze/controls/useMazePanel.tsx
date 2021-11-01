@@ -16,11 +16,6 @@ export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
     const controls = useControls(
         "maze",
         {
-            mode: {
-                options: MazeModes,
-                value: defaultSettings.mode,
-                onChange: makeOnChange("mode"),
-            },
             width: { value: defaultSettings.width, min: 4, max: 200, step: 2, onChange: makeOnChange("width", true) },
             height: {
                 value: defaultSettings.height,
@@ -29,7 +24,19 @@ export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
                 step: 2,
                 onChange: makeOnChange("height", true),
             },
-            random: { value: defaultSettings.random, min: 1, max: 100, step: 5, onChange: makeOnChange("random") },
+            mode: {
+                options: MazeModes,
+                value: defaultSettings.mode,
+                onChange: makeOnChange("mode"),
+            },
+            random: {
+                value: defaultSettings.random,
+                min: 1,
+                max: 100,
+                step: 5,
+                onChange: makeOnChange("random"),
+                render: (get) => ["mixed", "both", "random"].includes(get("maze.mode")),
+            },
             stepDelayInMs: {
                 value: defaultSettings.stepDelayInMs,
                 min: 0,

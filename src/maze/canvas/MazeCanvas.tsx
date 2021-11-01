@@ -1,4 +1,5 @@
 import { Canvas } from "@react-three/fiber";
+import { Leva } from "leva";
 import { useState } from "react";
 
 import { Gizmo } from "@/components/Gizmo";
@@ -21,9 +22,12 @@ export const MazeCanvas = () => {
     const getSettings = useAtomSyncCallback((get) => get(settingsAtom));
 
     return (
-        <MazeCanvasRenderer>
-            <CanvasMazeGrid key={key} {...getSettings()} />
-        </MazeCanvasRenderer>
+        <>
+            <MazeCanvasRenderer>
+                <CanvasMazeGrid key={key} {...getSettings()} />
+            </MazeCanvasRenderer>
+            <Leva hideCopyButton />
+        </>
     );
 };
 

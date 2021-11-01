@@ -10,9 +10,9 @@ export const colorByDisplayState: Record<MazeCell["display"], string> = {
     path: "#f1e4de",
     blocked: "#0b7fab",
     start: "#43640b",
-    current: "#f4d75e",
+    current: "#fb8500",
     end: "#c33124",
-    mark: "#80a71a",
+    mark: "#023047",
 };
 export const material = new MeshStandardMaterial({ color: new Color(colorByDisplayState.empty), side: DoubleSide });
 export const geometry = new BoxGeometry(1, 3, 1);

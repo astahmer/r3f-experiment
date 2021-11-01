@@ -77,7 +77,7 @@ export function CanvasMazeGrid(initialSettings: MazeSettings) {
     const gridRefs = useRef(new Map<MazeCell["id"], Position>());
     const repaintMaze = () => paintWholeGrid(maze.flat());
 
-    const { showUI } = useControls({ showUI: true });
+    const { showUI } = useControls({ showUI: { label: "Show UI Controls", value: true } });
 
     return (
         <>
