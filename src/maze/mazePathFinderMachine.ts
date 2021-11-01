@@ -39,6 +39,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                         },
                     },
                     on: {
+                        SetDisplay: { actions: [model.assign({ displayMode: (_, event) => event.value }), "drawGrid"] },
                         TOGGLE_MODE: { actions: ["toggleMode", raise("FINDER_STEP")] },
                         FINDER_STEP: [
                             { target: "finding.willChangePath", cond: "hasReachedDeadEnd" },
@@ -63,7 +64,12 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
             actions: {
                 toggleMode: model.assign({ mode: (ctx) => (ctx.mode === "auto" ? "manual" : "auto") }),
                 drawGrid: (ctx) => {
-                    ctx.steps.forEach((cellId) => (ctx.pathCellsMap[cellId].display = "mark"));
+                    ctx.pathCells.forEach((cell) => {
+                        if (ctx.steps.includes(cell.id)) cell.display = "mark";
+                        else cell.display = "path";
+                        if (ctx.displayMode === "branchCells" && ctx.branchNodes.has(cell.id)) cell.display = "blocked";
+                    });
+
                     if (ctx.currentCell) ctx.currentCell.display = "current";
                     if (ctx.rootBranchCell) ctx.rootBranchCell.display = "start";
                 },
@@ -140,6 +146,7 @@ function createPathFinderModel(grid: MazeGridType) {
     const model = createModel(
         {
             mode: "manual" as "manual" | "auto",
+            displayMode: "none" as "none" | "branchCells",
             grid,
             pathCells: paths,
             pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
@@ -164,7 +171,7 @@ function createPathFinderModel(grid: MazeGridType) {
                 ])
             ),
         },
-        { events: { TOGGLE_MODE: noop, FINDER_STEP: noop } }
+        { events: { TOGGLE_MODE: noop, FINDER_STEP: noop, SetDisplay: (value: "none" | "branchCells") => ({ value }) } }
     );
 
     return model;

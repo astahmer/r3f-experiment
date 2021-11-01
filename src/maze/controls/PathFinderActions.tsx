@@ -69,42 +69,21 @@ const DebugPathFinder = ({
     const rootBranchCell = useSelector(finder, rootBranchCellSelector);
     const currentCell = useSelector(finder, currentCellSelector);
 
-    const resetDisplay = () => {
-        normalDisplayRef.current.forEach(([cell, display]) => (cell.display = display));
-        paintMaze();
-    };
-
-    // Mark cells visually for easier debugging
-    const showBranchCells = () => {
-        resetDisplay();
-        const branchCells = finder.state.context.pathCells.filter((cell) => getPathNeighbors(cell).length > 2);
-        branchCells.forEach((cell) => (cell.display = "mark"));
-        paintMaze();
-    };
-
-    const normalDisplayRef = useRef<Array<[MazeCell, MazeCell["display"]]>>([]);
     useEffect(() => {
         paintMaze();
-
-        finder.state.context.grid.flat().forEach((cell) => normalDisplayRef.current.push([cell, cell.display]));
     }, []);
 
     const [index, cursor] = useArrayCursor(showCellsOptions.length);
-    useKey("l", () => {
-        cursor.next();
-        set({ showCells: showCellsOptions[index] });
-    });
+    useKey("l", cursor.next);
+    useEffect(() => set({ showCells: showCellsOptions[index] }), [index]);
 
+    const send = finder.send;
     const [, set] = useControls(() => ({
         showCells: {
             label: "Show Cells",
             options: showCellsOptions,
             value: "none",
-            onChange: (v) => {
-                if (v === "none") return resetDisplay();
-                // if (v === "paths") return showPathCells();
-                if (v === "branchCells") return showBranchCells();
-            },
+            onChange: (value) => send({ type: "SetDisplay", value }),
         },
     }));
 
