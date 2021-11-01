@@ -30,7 +30,7 @@ export const createMazeGeneratorMachine = (args: MazeGeneratorArgs) => {
                 },
                 running: {
                     after: {
-                        [initialSettings.stepDelayInMs]: [
+                        STEP_DELAY: [
                             { target: "done", cond: "isDone" },
                             { target: "running", actions: "step" },
                         ],
@@ -70,6 +70,7 @@ export const createMazeGeneratorMachine = (args: MazeGeneratorArgs) => {
             },
         },
         {
+            delays: { STEP_DELAY: (ctx) => ctx.settings.stepDelayInMs },
             actions: {
                 /** Update a key in settings with given value, also reset to initial grid context if key is width or height */
                 updateSettings: model.assign((ctx, event) => {
