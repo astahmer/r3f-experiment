@@ -1,9 +1,11 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { useSelector } from "@xstate/react";
+import { useControls } from "leva";
 import { useEffect, useRef } from "react";
 import { ActorRefFrom } from "xstate";
 
+import { useArrayCursor } from "@/functions/useArrayCursor";
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
@@ -67,39 +69,44 @@ const DebugPathFinder = ({
     const rootBranchCell = useSelector(finder, rootBranchCellSelector);
     const currentCell = useSelector(finder, currentCellSelector);
 
-    const gridDisplayRef = useRef<Array<[MazeCell, MazeCell["display"]]>>(null);
     const resetDisplay = () => {
-        gridDisplayRef.current.forEach(([cell, display]) => (cell.display = display));
-        gridDisplayRef.current = null;
+        normalDisplayRef.current.forEach(([cell, display]) => (cell.display = display));
         paintMaze();
     };
-    const saveDisplay = () => {
-        gridDisplayRef.current = [];
-        finder.state.context.grid.flat().forEach((cell) => gridDisplayRef.current.push([cell, cell.display]));
-    };
 
-    useKey("m", () => {
-        // Clunky toggle between previous display & forced display
-        if (gridDisplayRef.current) return resetDisplay();
-
-        saveDisplay();
-
-        // Mark branchCells visually for easier debugging
+    // Mark cells visually for easier debugging
+    const showBranchCells = () => {
+        resetDisplay();
         const branchCells = finder.state.context.pathCells.filter((cell) => getPathNeighbors(cell).length > 2);
         branchCells.forEach((cell) => (cell.display = "mark"));
         paintMaze();
-    });
+    };
 
-    useKey("l", () => {
-        // Clunky toggle between previous display & forced display
-        if (gridDisplayRef.current) return resetDisplay();
-        saveDisplay();
-
-        // Mark paths that are not branchCells visually for easier debugging
-        const paths = finder.state.context.pathCells.filter((cell) => getPathNeighbors(cell).length <= 2);
-        paths.forEach((cell) => (cell.display = "blocked"));
+    const normalDisplayRef = useRef<Array<[MazeCell, MazeCell["display"]]>>([]);
+    useEffect(() => {
         paintMaze();
+
+        finder.state.context.grid.flat().forEach((cell) => normalDisplayRef.current.push([cell, cell.display]));
+    }, []);
+
+    const [index, cursor] = useArrayCursor(showCellsOptions.length);
+    useKey("l", () => {
+        cursor.next();
+        set({ showCells: showCellsOptions[index] });
     });
+
+    const [, set] = useControls(() => ({
+        showCells: {
+            label: "Show Cells",
+            options: showCellsOptions,
+            value: "none",
+            onChange: (v) => {
+                if (v === "none") return resetDisplay();
+                // if (v === "paths") return showPathCells();
+                if (v === "branchCells") return showBranchCells();
+            },
+        },
+    }));
 
     return (
         <>
@@ -110,6 +117,8 @@ const DebugPathFinder = ({
         </>
     );
 };
+
+const showCellsOptions = ["none", "branchCells"];
 
 const DebugPathFinderState = ({ finder }) => {
     const state = useSelector(finder, (state: AnyState<MazePathFinderContext>) => printFinalStatesPath(state));

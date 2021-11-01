@@ -63,11 +63,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
             actions: {
                 toggleMode: model.assign({ mode: (ctx) => (ctx.mode === "auto" ? "manual" : "auto") }),
                 drawGrid: (ctx) => {
-                    ctx.pathCells.forEach((cell) => {
-                        if (ctx.steps.includes(cell.id)) cell.display = "mark";
-                        else cell.display = "path";
-                    });
-
+                    ctx.steps.forEach((cellId) => (ctx.pathCellsMap[cellId].display = "mark"));
                     if (ctx.currentCell) ctx.currentCell.display = "current";
                     if (ctx.rootBranchCell) ctx.rootBranchCell.display = "start";
                 },
@@ -83,6 +79,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                         ),
                         unvisitedsDirections: getPathNeighbors(rootBranchCell),
                         steps: [rootBranchCell.id],
+                        displayChanged: [rootBranchCell],
                     };
                 }),
                 setCurrentCell: model.assign((ctx) => {
@@ -140,35 +137,39 @@ function createPathFinderModel(grid: MazeGridType) {
     const branchCells = paths.filter((cell) => getPathNeighbors(cell).length > 2);
     const firstBranch = branchCells[0];
 
-    const model = createModel({
-        mode: "manual" as "manual" | "auto",
-        grid,
-        pathCells: paths,
-        pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
-        /** Every cells that have more than 2 paths possible (=intersection) to go from */
-        branchCellIds: branchCells.map((cell) => cell.id),
-        unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
-        rootBranchCell: firstBranch,
-        unvisitedsDirections: getPathNeighbors(firstBranch),
-        currentPaths: [] as Array<Array<MazeCell["id"]>>,
-        currentCell: firstBranch,
-        steps: [firstBranch.id] as Array<MazeCell["id"]>,
-        /** Every closest other branchCells in each direction for each branchCells   */
-        branchNodes: new Map(
-            branchCells.map((cell) => [
-                cell.id,
-                {
-                    left: undefined as MazeCell,
-                    top: undefined as MazeCell,
-                    right: undefined as MazeCell,
-                    bottom: undefined as MazeCell,
-                },
-            ])
-        ),
-    });
+    const model = createModel(
+        {
+            mode: "manual" as "manual" | "auto",
+            grid,
+            pathCells: paths,
+            pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
+            /** Every cells that have more than 2 paths possible (=intersection) to go from */
+            branchCellIds: branchCells.map((cell) => cell.id),
+            unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
+            rootBranchCell: firstBranch,
+            unvisitedsDirections: getPathNeighbors(firstBranch),
+            currentPaths: [] as Array<Array<MazeCell["id"]>>,
+            currentCell: firstBranch,
+            steps: [firstBranch.id] as Array<MazeCell["id"]>,
+            /** Every closest other branchCells in each direction for each branchCells   */
+            branchNodes: new Map(
+                branchCells.map((cell) => [
+                    cell.id,
+                    {
+                        left: undefined as MazeCell,
+                        top: undefined as MazeCell,
+                        right: undefined as MazeCell,
+                        bottom: undefined as MazeCell,
+                    },
+                ])
+            ),
+        },
+        { events: { TOGGLE_MODE: noop, FINDER_STEP: noop } }
+    );
 
     return model;
 }
+const noop = () => ({});
 
 function getNextStep(ctx: MazePathFinderContext) {
     const steps = ctx.steps.concat(ctx.currentCell.id);
