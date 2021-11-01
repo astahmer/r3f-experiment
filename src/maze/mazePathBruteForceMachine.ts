@@ -10,7 +10,6 @@ export const createPathBruteForceMachine = ({
     grid: MazeGridType;
     stepDelayInMs?: number;
 }) => {
-    console.log(grid);
     const start = new Date();
     const paths = grid.flat().filter((cell) => cell.state === "path");
     paths.forEach((cell) => (cell.display = "path"));
@@ -21,7 +20,6 @@ export const createPathBruteForceMachine = ({
     return createMachine(
         {
             id: "bruteForcer",
-            // TOOD use Set instead of arrays ?
             context: {
                 mode: "manual",
                 grid,

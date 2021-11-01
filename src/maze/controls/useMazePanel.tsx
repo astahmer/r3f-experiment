@@ -3,7 +3,7 @@ import { useControls, useCreateStore } from "leva";
 
 import { MazeModes, UpdateSettingsArgs } from "@/maze/mazeGeneratorMachine";
 
-import { defaultSettings, settingsAtom } from "./utils";
+import { defaultSettings, settingsAtom } from "../utils";
 
 export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
     // const store = useCreateStore();

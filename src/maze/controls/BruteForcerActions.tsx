@@ -4,7 +4,7 @@ import { useSelector } from "@xstate/react";
 
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
-import { MazeBruteForcerContext } from "./mazePathBruteForceMachine";
+import { MazeBruteForcerContext } from "../mazePathBruteForceMachine";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
 const isAutoSelector = (state: AnyState<MazeBruteForcerContext>) => state.context.mode === "auto";

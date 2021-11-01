@@ -1,18 +1,17 @@
 import { Stack } from "@chakra-ui/layout";
 import { chakra } from "@chakra-ui/react";
 import { useMachine } from "@xstate/react";
-import { useAtomValue } from "jotai/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useKey } from "@/functions/useKey";
 import { MazeGridType, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
-import { BruteForcerActions } from "./BruteForcerActions";
-import { MazeActions, MazeGeneratorActions } from "./MazeActions";
+import { useAtomSyncCallback } from "../../functions/useAtomSyncCallback";
+import { BruteForcerActions } from "../controls/BruteForcerActions";
+import { MazeActions, MazeGeneratorActions } from "../controls/MazeActions";
+import { useMazePanel } from "../controls/useMazePanel";
+import { settingsAtom } from "../utils";
 import { MazeGrid } from "./MazeGrid";
-import { useAtomSyncCallback } from "./useAtomSyncCallback";
-import { useMazePanel } from "./useMazePanel";
-import { settingsAtom } from "./utils";
 
 export const HtmlMaze = () => {
     // console.log(printFinalStatesPath(state), maze);

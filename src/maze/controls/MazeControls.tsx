@@ -5,10 +5,10 @@ import { ActorRefFrom, AnyInterpreter } from "xstate";
 
 import { MazeGridType } from "@/maze/mazeGeneratorMachine";
 
+import { createPathBruteForceMachine } from "../mazePathBruteForceMachine";
+import { createPathFinderMachine } from "../mazePathFinderMachine";
 import { BruteForcerActions } from "./BruteForcerActions";
 import { MazeActions, MazeGeneratorActions } from "./MazeActions";
-import { createPathBruteForceMachine } from "./mazePathBruteForceMachine";
-import { createPathFinderMachine } from "./mazePathFinderMachine";
 import { PathFinderActions } from "./PathFinderActions";
 import { useMazePanel } from "./useMazePanel";
 

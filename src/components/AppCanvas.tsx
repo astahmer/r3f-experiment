@@ -7,7 +7,7 @@ import { Suspense } from "react";
 
 import { playerFinalStatesPathAtom } from "@/functions/store";
 
-import { HtmlMazeWrapper } from "../maze/HtmlMaze";
+import { HtmlMazeWrapper } from "../maze/html/HtmlMaze";
 import { AppWorld } from "./AppWorld";
 import { CameraControls, cameraPosAtom } from "./CameraControls";
 import { HUDCompass } from "./Compass";

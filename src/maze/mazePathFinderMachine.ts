@@ -3,8 +3,8 @@ import { raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
 
 import { getWentDirectionFromTo } from "./grid";
-import { createPathMergerMachine } from "./mathPathMergerMachine";
 import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
+import { createPathMergerMachine } from "./mazePathMergerMachine";
 
 export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGridType; stepDelayInMs: number }) => {
     const model = createPathFinderModel(grid);

@@ -7,8 +7,8 @@ import { ActorRefFrom } from "xstate";
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
-import { MazeCell } from "./mazeGeneratorMachine";
-import { MazePathFinderContext, createPathFinderMachine, getPathNeighbors } from "./mazePathFinderMachine";
+import { MazeCell } from "../mazeGeneratorMachine";
+import { MazePathFinderContext, createPathFinderMachine, getPathNeighbors } from "../mazePathFinderMachine";
 import { PathMergerActions } from "./PathMergerActions";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");

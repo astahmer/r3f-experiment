@@ -2,12 +2,12 @@ import { Canvas } from "@react-three/fiber";
 import { useState } from "react";
 
 import { Gizmo } from "@/components/Gizmo";
+import { Zoom } from "@/components/Zoom";
+import { useAtomSyncCallback } from "@/functions/useAtomSyncCallback";
 import { useKey } from "@/functions/useKey";
 
-import { Zoom } from "../components/Zoom";
+import { cameraPosition, settingsAtom } from "../utils";
 import { CanvasMazeGrid } from "./CanvasMazeGrid";
-import { useAtomSyncCallback } from "./useAtomSyncCallback";
-import { cameraPosition, settingsAtom } from "./utils";
 
 export const MazeCanvas = () => {
     const [key, setKey] = useState(0);

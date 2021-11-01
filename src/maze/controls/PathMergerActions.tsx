@@ -4,7 +4,7 @@ import { useSelector } from "@xstate/react";
 
 import { AnyState } from "@/functions/xstate-utils";
 
-import { MazePathFinderContext } from "./mazePathFinderMachine";
+import { MazePathFinderContext } from "../mazePathFinderMachine";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
 const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";

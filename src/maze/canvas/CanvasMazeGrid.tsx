@@ -6,9 +6,9 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { printFinalStatesPath } from "@/functions/xstate-utils";
 import { MazeCell, MazeSettings, createMazeGeneratorMachine } from "@/maze/mazeGeneratorMachine";
 
+import { MazeControls } from "../controls/MazeControls";
+import { colorByDisplayState } from "../utils";
 import { CellsList } from "./CellsList";
-import { MazeControls } from "./MazeControls";
-import { colorByDisplayState } from "./utils";
 
 export function CanvasMazeGrid(initialSettings: MazeSettings) {
     const [settings, setSettings] = useState(initialSettings);

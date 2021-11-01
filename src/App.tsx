@@ -3,8 +3,8 @@ import "./App.css";
 import { ChakraProvider, Flex, extendTheme } from "@chakra-ui/react";
 import { QueryClient, QueryClientProvider } from "react-query";
 
-import { HtmlMazeWrapper } from "./maze/HtmlMaze";
-import { MazeCanvas } from "./maze/MazeCanvas";
+import { MazeCanvas } from "./maze/canvas/MazeCanvas";
+import { HtmlMazeWrapper } from "./maze/html/HtmlMaze";
 
 const queryClient = new QueryClient();
 

@@ -7,7 +7,7 @@ import { MutableRefObject, Ref, useRef } from "react";
 import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
 import { CommonObject } from "@/types";
 
-import { colorByDisplayState, geometry, material } from "./utils";
+import { colorByDisplayState, geometry, material } from "../utils";
 
 // https://codesandbox.io/s/re-using-gltfs-forked-h8o2d?file=/src/App.js:136-228
 export function CellsList({
