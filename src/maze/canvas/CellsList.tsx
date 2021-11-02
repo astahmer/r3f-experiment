@@ -1,8 +1,10 @@
-import { useMergeRefs } from "@chakra-ui/react";
+import { chakra, useMergeRefs } from "@chakra-ui/react";
 import { chunk } from "@pastable/utils";
-import { Instance, Instances } from "@react-three/drei";
+import { Html, Instance, Instances } from "@react-three/drei";
 import { Position } from "@react-three/drei/helpers/Position";
-import { MutableRefObject, Ref, useRef } from "react";
+import { atom } from "jotai";
+import { useAtomValue } from "jotai/utils";
+import { MutableRefObject, Ref, useEffect, useRef, useState } from "react";
 
 import { MazeCell, MazeGridType } from "@/maze/mazeGeneratorMachine";
 import { CommonObject } from "@/types";
@@ -27,8 +29,7 @@ export function CellsList({
                     {chunk.map((cell, i) => (
                         <CellBox
                             key={i}
-                            index={i}
-                            range={chunk.length}
+                            cell={cell}
                             position={[cell.x, 0, cell.y]}
                             rotation={[0, 0, 0]}
                             instanceRef={(node) => registerMesh(cell, node)}
@@ -42,14 +43,14 @@ export function CellsList({
 }
 
 function CellBox({
+    cell,
     position,
     rotation,
     instanceRef,
     color,
 }: Omit<CommonObject, "meshRef"> & {
+    cell: MazeCell;
     instanceRef?: MutableRefObject<Position> | Ref<Position>;
-    index: number;
-    range: number;
 }) {
     const ref = useRef<Position>();
     // const [hovered, setHover] = useState(false);
@@ -61,6 +62,7 @@ function CellBox({
 
     // console.log(position);
     // console.log(index, range);
+
     return (
         <group {...{ position, rotation }}>
             <Instance
@@ -68,6 +70,35 @@ function CellBox({
                 // onPointerOver={(e) => (e.stopPropagation(), setHover(true))}
                 // onPointerOut={() => setHover(false)}
             />
+            <CellPosition cell={cell} />
         </group>
     );
 }
+
+const CellPosition = ({ cell }: { cell: MazeCell }) => {
+    const showCellPos = useAtomValue(showCellPosAtom);
+    const [shouldRenderHtml, setShouldRenderHtml] = useState(showCellPos);
+
+    useEffect(() => {
+        if (showCellPos && !shouldRenderHtml) setShouldRenderHtml(true);
+    }, [showCellPos]);
+
+    return shouldRenderHtml ? (
+        <Html prepend>
+            <chakra.div pos="absolute" w="30px" h="30px" display={showCellPos ? "" : "none"}>
+                <chakra.span
+                    pos="absolute"
+                    top="0"
+                    left="0"
+                    transform="translate3d(-50%, -50%, 0)"
+                    fontSize="10px"
+                    opacity="0.6"
+                >
+                    {cell.id}
+                </chakra.span>
+            </chakra.div>
+        </Html>
+    ) : null;
+};
+
+export const showCellPosAtom = atom(false);

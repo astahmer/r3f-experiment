@@ -1,5 +1,6 @@
 import { Position } from "@react-three/drei/helpers/Position";
 import { useInterpret, useSelector } from "@xstate/react";
+import { useUpdateAtom } from "jotai/utils";
 import { useControls } from "leva";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
@@ -8,7 +9,7 @@ import { MazeCell, MazeSettings, createMazeGeneratorMachine } from "@/maze/mazeG
 
 import { MazeControls } from "../controls/MazeControls";
 import { colorByDisplayState } from "../utils";
-import { CellsList } from "./CellsList";
+import { CellsList, showCellPosAtom } from "./CellsList";
 
 export function CanvasMazeGrid(initialSettings: MazeSettings) {
     const [settings, setSettings] = useState(initialSettings);
@@ -77,7 +78,11 @@ export function CanvasMazeGrid(initialSettings: MazeSettings) {
     const gridRefs = useRef(new Map<MazeCell["id"], Position>());
     const repaintMaze = () => paintWholeGrid(maze.flat());
 
-    const { showUI } = useControls({ showUI: { label: "Show UI Controls", value: true } });
+    const setShowCellPos = useUpdateAtom(showCellPosAtom);
+    const { showUI } = useControls({
+        showUI: { label: "Show UI Controls", value: true },
+        showCellPos: { value: false, onChange: (v) => setShowCellPos(v) },
+    });
 
     return (
         <>
@@ -98,7 +103,7 @@ export function CanvasMazeGrid(initialSettings: MazeSettings) {
                     <CellsList maze={maze} registerMesh={(cell, node) => gridRefs.current.set(cell.id, node)} />
                 </group>
             )}
-            <MazeControls {...({ state, send, maze, bruteForcer, finder, repaintMaze, showUI } as any)} />
+            <MazeControls {...({ state, send, service, maze, bruteForcer, finder, repaintMaze, showUI } as any)} />
         </>
     );
 }
