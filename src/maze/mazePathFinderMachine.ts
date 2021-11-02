@@ -1,8 +1,9 @@
+import { last } from "@pastable/utils";
 import { ContextFrom } from "xstate";
 import { raise } from "xstate/lib/actions";
 import { createModel } from "xstate/lib/model";
 
-import { getWentDirectionFromTo } from "./grid";
+import { Direction, getWentDirectionFromTo } from "./grid";
 import { MazeCell, MazeGridType } from "./mazeGeneratorMachine";
 import { createPathMergerMachine } from "./mazePathMergerMachine";
 
@@ -76,16 +77,29 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                 setRoot: model.assign((ctx) => {
                     const rootBranchCell = ctx.unvisitedsBranchCells[0];
 
+                    // Filter out directions that were already visiteds in reverse (from opposite to rootBranchCell)
+                    const unvisitedsDirections = Object.entries(rootBranchCell.neighbors)
+                        .filter(([dir, next]) => {
+                            if (!next) return false;
+                            if (next.state !== "path") return false;
+
+                            const direction = dir as Direction;
+                            const nodes = ctx.branchNodes.get(rootBranchCell.id);
+                            const oppositeBranchCell = nodes[direction];
+                            if (!oppositeBranchCell) return true;
+
+                            const vector = getVectorHash(rootBranchCell, oppositeBranchCell);
+                            return !ctx.visitedsVectors.has(vector);
+                        })
+                        .map(([_dir, cell]) => cell);
+
                     return {
                         ...ctx,
                         rootBranchCell,
                         currentCell: rootBranchCell,
-                        unvisitedsBranchCells: ctx.unvisitedsBranchCells.filter(
-                            (cell) => cell.id !== rootBranchCell.id
-                        ),
-                        unvisitedsDirections: getPathNeighbors(rootBranchCell),
+                        unvisitedsBranchCells: ctx.unvisitedsBranchCells.slice(1),
+                        unvisitedsDirections,
                         steps: [rootBranchCell.id],
-                        displayChanged: [rootBranchCell],
                     };
                 }),
                 setCurrentCell: model.assign((ctx) => {
@@ -96,7 +110,7 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                         ...ctx,
                         currentCell,
                         steps: [ctx.rootBranchCell.id, currentCell.id], // only diff with step
-                        unvisitedsDirections: ctx.unvisitedsDirections.filter((cell) => cell.id !== currentCell.id),
+                        unvisitedsDirections: ctx.unvisitedsDirections.slice(1),
                     };
                 }),
                 addStepsToCurrentPaths: model.assign((ctx) => {
@@ -104,10 +118,14 @@ export const createPathFinderMachine = ({ grid, stepDelayInMs }: { grid: MazeGri
                     addBranchCellAsNodeDirectionNeighbor(ctx, nextCell);
 
                     const steps = ctx.steps.concat(nextCell ? nextCell.id : []);
+                    const paths = [steps];
+
+                    const isNextCellAnotherBranchCell = ctx.branchCellIds.includes(nextCell?.id);
+                    if (isNextCellAnotherBranchCell) paths.push([...steps].reverse());
 
                     return {
                         ...ctx,
-                        currentPaths: ctx.currentPaths.concat([steps]),
+                        currentPaths: ctx.currentPaths.concat(paths),
                         steps: [],
                     };
                 }),
@@ -152,12 +170,13 @@ function createPathFinderModel(grid: MazeGridType) {
             pathCellsMap: Object.fromEntries(paths.map((cell) => [cell.id, cell])),
             /** Every cells that have more than 2 paths possible (=intersection) to go from */
             branchCellIds: branchCells.map((cell) => cell.id),
-            unvisitedsBranchCells: branchCells.filter((cell) => cell.id !== firstBranch.id),
+            unvisitedsBranchCells: branchCells.slice(1),
             rootBranchCell: firstBranch,
             unvisitedsDirections: getPathNeighbors(firstBranch),
             currentPaths: [] as Array<Array<MazeCell["id"]>>,
             currentCell: firstBranch,
             steps: [firstBranch.id] as Array<MazeCell["id"]>,
+            visitedsVectors: new Set(),
             /** Every closest other branchCells in each direction for each branchCells   */
             branchNodes: new Map(
                 branchCells.map((cell) => [
@@ -180,14 +199,19 @@ const noop = () => ({});
 
 function getNextStep(ctx: MazePathFinderContext) {
     const steps = ctx.steps.concat(ctx.currentCell.id);
-    const unvisitedsNeighbors = getPathNeighbors(ctx.currentCell).filter((cell) => !steps.includes(cell.id));
+
+    // After `setRoot`, use the filtered directions to ignore previously visiteds vectors
+    const unvisitedsNeighbors =
+        ctx.steps.length === 1
+            ? ctx.unvisitedsDirections
+            : getPathNeighbors(ctx.currentCell).filter((cell) => !steps.includes(cell.id));
     const currentCell = unvisitedsNeighbors[0];
 
     return currentCell;
 }
 
 const addBranchCellAsNodeDirectionNeighbor = (ctx: MazePathFinderContext, nextCell: MazeCell) => {
-    const firstStepId = ctx.steps[1] || nextCell.id;
+    const firstStepId = ctx.steps[1] || nextCell?.id;
     // We need to have moved at least once to figure out the direction taken from the rootBranchCell
     if (!firstStepId) return;
 
@@ -199,5 +223,14 @@ const addBranchCellAsNodeDirectionNeighbor = (ctx: MazePathFinderContext, nextCe
 
     if (!ctx.branchNodes.get(ctx.rootBranchCell.id)[wentDirection]) {
         ctx.branchNodes.get(ctx.rootBranchCell.id)[wentDirection] = nextCell;
+        ctx.visitedsVectors.add(getVectorHash(ctx.rootBranchCell, nextCell));
+    }
+
+    const firstStepIdFromNextBranchCell = last(ctx.steps);
+    const firstStepFromNextBranchCell = ctx.pathCellsMap[firstStepIdFromNextBranchCell];
+    const opposite = getWentDirectionFromTo(nextCell, firstStepFromNextBranchCell);
+    if (!ctx.branchNodes.get(nextCell.id)[opposite]) {
+        ctx.branchNodes.get(nextCell.id)[opposite] = ctx.rootBranchCell;
     }
 };
+const getVectorHash = (from: MazeCell, to: MazeCell) => [from.id, to.id].sort().join();
