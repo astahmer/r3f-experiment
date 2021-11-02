@@ -25,7 +25,7 @@ export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
                 min: 4,
                 max: 200,
                 step: 2,
-                onChange: (aaa, bbb, ccc) => {},
+                onChange: makeOnChange("height", true),
             },
             mode: {
                 options: MazeModes,

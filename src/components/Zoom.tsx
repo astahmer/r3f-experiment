@@ -6,7 +6,7 @@ import { cameraPosition } from "@/maze/utils";
 
 export function Zoom() {
     const { zoom, position } = useControls({
-        zoom: { value: 2, min: 0.4, max: 6, step: 0.2 },
+        zoom: { value: 2, min: 0.4, max: 8, step: 0.2 },
         position: { x: cameraPosition[0], y: cameraPosition[1], z: cameraPosition[2] },
     });
     return useFrame((state) => {
