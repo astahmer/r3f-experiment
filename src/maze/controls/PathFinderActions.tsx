@@ -2,15 +2,14 @@ import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { useSelector } from "@xstate/react";
 import { useControls } from "leva";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { ActorRefFrom } from "xstate";
 
 import { useArrayCursor } from "@/functions/useArrayCursor";
 import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
-import { MazeCell } from "../mazeGeneratorMachine";
-import { MazePathFinderContext, createPathFinderMachine, getPathNeighbors } from "../mazePathFinderMachine";
+import { MazePathFinderContext, createPathFinderMachine } from "../mazePathFinderMachine";
 import { PathMergerActions } from "./PathMergerActions";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");

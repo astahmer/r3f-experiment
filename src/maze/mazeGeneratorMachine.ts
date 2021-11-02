@@ -102,7 +102,11 @@ export const createMazeGeneratorMachine = (args: MazeGeneratorArgs) => {
                             v.visited = true;
                         });
 
-                    return { ...ctx, ...updatedCtx };
+                    const width = states[0].length;
+                    const height = states.length;
+                    const settings = { ...ctx.settings, width, height };
+
+                    return { ...ctx, ...updatedCtx, settings };
                 }, "IMPORT") as any,
                 reset: model.assign((ctx) => ({
                     ...ctx,

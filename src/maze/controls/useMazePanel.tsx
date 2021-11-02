@@ -1,5 +1,6 @@
 import { useUpdateAtom } from "jotai/utils";
 import { useControls, useCreateStore } from "leva";
+import { OnChangeHandler } from "leva/dist/declarations/src/types";
 
 import { MazeModes, UpdateSettingsArgs } from "@/maze/mazeGeneratorMachine";
 
@@ -8,21 +9,23 @@ import { defaultSettings, settingsAtom } from "../utils";
 export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
     // const store = useCreateStore();
     const setSettings = useUpdateAtom(settingsAtom);
-    const makeOnChange = (key: string, shouldRefreshGrid?: boolean) => (value: any) => {
-        setSettings((current) => ({ ...current, [key]: value }));
-        onChange({ key, value, shouldRefreshGrid });
-    };
+    const makeOnChange =
+        (key: string, shouldRefreshGrid?: boolean): OnChangeHandler =>
+        (value, path, ctx) => {
+            setSettings((current) => ({ ...current, [key]: value }));
+            onChange({ key, value, shouldRefreshGrid: ctx.fromPanel ? shouldRefreshGrid : false });
+        };
 
-    const controls = useControls(
+    const [_, set] = useControls(
         "maze",
-        {
+        () => ({
             width: { value: defaultSettings.width, min: 4, max: 200, step: 2, onChange: makeOnChange("width", true) },
             height: {
                 value: defaultSettings.height,
                 min: 4,
                 max: 200,
                 step: 2,
-                onChange: makeOnChange("height", true),
+                onChange: (aaa, bbb, ccc) => {},
             },
             mode: {
                 options: MazeModes,
@@ -45,10 +48,10 @@ export const useMazePanel = (onChange: (args: UpdateSettingsArgs) => void) => {
                 onChange: makeOnChange("stepDelayInMs"),
             },
             // state: { value: printFinalStatesPath(state), disabled: true },
-        }
+        })
         // { store }
     );
-    return controls;
+    return set;
 
     // return { store };
 };
