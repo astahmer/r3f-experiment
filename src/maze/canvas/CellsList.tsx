@@ -80,12 +80,12 @@ const CellPosition = ({ cell }: { cell: MazeCell }) => {
     const [shouldRenderHtml, setShouldRenderHtml] = useState(showCellPos);
 
     useEffect(() => {
-        if (showCellPos && !shouldRenderHtml) setShouldRenderHtml(true);
+        if (showCellPos && !shouldRenderHtml && cell.state && cell.state !== "wall") setShouldRenderHtml(true);
     }, [showCellPos]);
 
     return shouldRenderHtml ? (
         <Html prepend>
-            <chakra.div pos="absolute" w="30px" h="30px" display={showCellPos ? "" : "none"}>
+            <chakra.div pos="absolute" w="30px" h="30px" display={showCellPos ? "" : "none"} userSelect="none">
                 <chakra.span
                     pos="absolute"
                     top="0"
