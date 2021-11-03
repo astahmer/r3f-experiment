@@ -10,6 +10,7 @@ import { useKey } from "@/functions/useKey";
 import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
 import { MazePathFinderContext, createPathFinderMachine } from "../mazePathFinderMachine";
+import { createPathMergerMachine } from "../mazePathMergerMachine";
 import { PathMergerActions } from "./PathMergerActions";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
@@ -26,14 +27,43 @@ export const PathFinderActions = ({
     const isDone = useSelector(finder, isDoneSelector);
     const isAuto = useSelector(finder, isAutoSelector);
 
-    const merger = useSelector(finder, (state) => state.children.merger);
+    const merger = useSelector(finder, (state) => state.children.merger) as ActorRefFrom<
+        ReturnType<typeof createPathMergerMachine>
+    >;
 
+    // Subscribe to merger updates & repaint maze each time
     useEffect(() => {
         if (!merger) return;
 
-        const sub = merger.subscribe(() => paintMaze());
+        const sub = merger.subscribe((next) => {
+            paintMaze();
+            // console.log(next.value);
+        });
         return sub.unsubscribe;
     }, [merger]);
+
+    useEffect(() => {
+        paintMaze();
+    }, []);
+
+    const [index, cursor] = useArrayCursor(showCellsOptions.length, 0);
+    useKey("l", cursor.next);
+    useEffect(() => set({ showCells: showCellsOptions[index] }), [index]);
+
+    const [, set] = useControls(() => ({
+        showCells: {
+            label: "Show Cells",
+            options: showCellsOptions,
+            value: "none",
+            onChange: (value) => {
+                if (merger) {
+                    return merger.send({ type: "SetDisplay", value });
+                }
+
+                send({ type: "SetDisplay", value });
+            },
+        },
+    }));
 
     return (
         <>
@@ -49,8 +79,13 @@ export const PathFinderActions = ({
                 </Button>
                 <Button onClick={() => console.log(finder.state.context)}>Log find ctx</Button>
             </HStack>
-            <DebugPathFinder finder={finder} paintMaze={paintMaze} />
-            {isDone && merger && <PathMergerActions merger={merger} paintMaze={paintMaze} />}
+            {isDone ? (
+                merger ? (
+                    <PathMergerActions merger={merger} paintMaze={paintMaze} />
+                ) : null
+            ) : (
+                <DebugPathFinder finder={finder} paintMaze={paintMaze} />
+            )}
         </>
     );
 };
@@ -67,24 +102,6 @@ const DebugPathFinder = ({
 }) => {
     const rootBranchCell = useSelector(finder, rootBranchCellSelector);
     const currentCell = useSelector(finder, currentCellSelector);
-
-    useEffect(() => {
-        paintMaze();
-    }, []);
-
-    const [index, cursor] = useArrayCursor(showCellsOptions.length);
-    useKey("l", cursor.next);
-    useEffect(() => set({ showCells: showCellsOptions[index] }), [index]);
-
-    const send = finder.send;
-    const [, set] = useControls(() => ({
-        showCells: {
-            label: "Show Cells",
-            options: showCellsOptions,
-            value: "none",
-            onChange: (value) => send({ type: "SetDisplay", value }),
-        },
-    }));
 
     return (
         <>

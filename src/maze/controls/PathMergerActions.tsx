@@ -1,13 +1,14 @@
 import { Button } from "@chakra-ui/button";
 import { HStack } from "@chakra-ui/layout";
 import { useSelector } from "@xstate/react";
+import { ActorRefFrom } from "xstate";
 
-import { AnyState } from "@/functions/xstate-utils";
+import { AnyState, printFinalStatesPath } from "@/functions/xstate-utils";
 
-import { MazePathFinderContext } from "../mazePathFinderMachine";
+import { MazePathMergerContext, createPathMergerMachine } from "../mazePathMergerMachine";
 
 const isDoneSelector = (state: AnyState) => state.matches("done");
-const isAutoSelector = (state: AnyState<MazePathFinderContext>) => state.context.mode === "auto";
+const isAutoSelector = (state: AnyState<MazePathMergerContext>) => state.context.mode === "auto";
 
 export const PathMergerActions = ({ merger, paintMaze }: { merger; paintMaze: () => void }) => {
     const send = merger.send;
@@ -29,6 +30,32 @@ export const PathMergerActions = ({ merger, paintMaze }: { merger; paintMaze: ()
                 </Button>
                 <Button onClick={() => console.log(merger.state.context)}>Log merge ctx</Button>
             </HStack>
+            <DebugPathMerger merger={merger} paintMaze={paintMaze} />
         </>
     );
+};
+
+const DebugPathMerger = ({
+    merger,
+    paintMaze,
+}: {
+    merger: ActorRefFrom<ReturnType<typeof createPathMergerMachine>>;
+    paintMaze: () => void;
+}) => {
+    const currentVector = useSelector(merger, (state) => state.context.currentVector?.[3]);
+    const nextVector = useSelector(merger, (state) => state.context.nextVector?.[3]);
+
+    return (
+        <>
+            <DebugPathMergerState merger={merger} />
+            <span>
+                root: {currentVector} --- nextVector: {nextVector} ---
+            </span>
+        </>
+    );
+};
+const DebugPathMergerState = ({ merger }) => {
+    const state = useSelector(merger, (state: AnyState<MazePathMergerContext>) => printFinalStatesPath(state));
+
+    return <span>{state}</span>;
 };

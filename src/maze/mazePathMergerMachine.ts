@@ -40,24 +40,29 @@ const createPathMergerModel = ({ stepDelayInMs, ...ctx }: CreatePathMergerMachin
     const vectorsMap = new Map(minimalVectors.map((vec) => [vec[3], vec]));
     const pointsState = new Map(minimalVectors.map((vec) => [vec[3], makePointStateFromVec(vec, ctx.branchNodes)]));
 
-    return createModel({
-        mode: "manual" as "manual" | "auto",
-        stepDelayInMs,
-        // inherited from pathFinder
-        pathCells: ctx.pathCells,
-        branchNodes: ctx.branchNodes,
-        currentPaths: ctx.currentPaths,
-        //
-        currentVector: minimalVectors[0],
-        nextVector: null as MazeVector,
-        lastMergedVector: null as MazeVector,
-        vectorsStartingById,
-        pointsState,
-        //
-        vectorsMap,
-        longestPaths: [] as Array<MazeCell["id"][]>,
-    });
+    return createModel(
+        {
+            mode: "manual" as "manual" | "auto",
+            displayMode: "none" as "none" | "branchCells",
+            stepDelayInMs,
+            // inherited from pathFinder
+            pathCells: ctx.pathCells,
+            branchNodes: ctx.branchNodes,
+            currentPaths: ctx.currentPaths,
+            //
+            currentVector: minimalVectors[0],
+            nextVector: null as MazeVector,
+            lastMergedVector: null as MazeVector,
+            vectorsStartingById,
+            pointsState,
+            //
+            vectorsMap,
+            longestPaths: [] as Array<MazeCell["id"][]>,
+        },
+        { events: { TOGGLE_MODE: noop, MERGER_STEP: noop, SetDisplay: (value: "none" | "branchCells") => ({ value }) } }
+    );
 };
+const noop = () => ({});
 
 export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
     const model = createPathMergerModel(ctx);
@@ -93,6 +98,7 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                 },
             },
             on: {
+                SetDisplay: { actions: [model.assign({ displayMode: (_, event) => event.value }), "drawGrid"] },
                 TOGGLE_MODE: { actions: ["toggleMode", raise("MERGER_STEP")] },
                 MERGER_STEP: [
                     { target: "merging.willChangeNext", actions: "pickNext", cond: "hasUnvisitedsVectors" },
@@ -113,6 +119,9 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                     const nextSteps = ctx.nextVector?.[2] || [];
 
                     ctx.pathCells.forEach((cell) => {
+                        if (ctx.displayMode === "branchCells" && ctx.branchNodes.has(cell.id))
+                            return (cell.display = "blocked");
+
                         if (currentSteps.includes(cell.id) && nextSteps.includes(cell.id))
                             return (cell.display = "start");
                         if (currentSteps.includes(cell.id)) return (cell.display = "blocked");
