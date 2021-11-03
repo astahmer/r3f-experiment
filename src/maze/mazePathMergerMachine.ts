@@ -80,7 +80,6 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         picking: {},
                         willChangeNext: { always: { target: "picking", actions: "merge", cond: "canMerge" } },
                         willChangeCurrent: {},
-                        hasAllVectors: { always: { target: "#pathMerger.done", actions: "computeFullPaths" } },
                     },
                 },
                 done: {
@@ -107,7 +106,7 @@ export const createPathMergerMachine = (ctx: CreatePathMergerMachineProps) => {
                         actions: ["removeVisitedPoints", "pickCurrent"],
                         cond: "shouldChangeCurrentVector",
                     },
-                    { target: "merging.hasAllVectors" },
+                    { target: "#pathMerger.done", actions: "computeFullPaths" },
                 ],
             },
         },
